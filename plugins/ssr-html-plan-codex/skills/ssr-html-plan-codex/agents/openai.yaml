@@ -1,0 +1,4 @@
+interface:
+  display_name: "SSR-HTML-PLAN-CODEX"
+  short_description: "生成可离线审阅的 HTML 开发计划，支持界面草图、决策选择与批注反馈"
+  default_prompt: "用 $ssr-html-plan-codex:ssr-html-plan-codex 为当前需求生成交互式 HTML 实施计划，先审阅方案，不修改业务代码。"

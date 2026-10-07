@@ -1,0 +1,20 @@
+{
+  "name": "ssr-plugins",
+  "interface": {
+    "displayName": "SSR Plugins"
+  },
+  "plugins": [
+    {
+      "name": "ssr-html-plan-codex",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ssr-html-plan-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
