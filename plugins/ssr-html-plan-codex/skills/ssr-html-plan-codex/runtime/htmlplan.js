@@ -1,4 +1,5 @@
 // Modified for SSR-HTML-PLAN-CODEX, 2026-10-06: feedback targets Codex.
+// Modified for SSR-HTML-PLAN-CODEX, 2026-10-12: Chinese chrome for lang="zh…" pages; CJK-aware label widths.
 /* htmlplan.js — runtime for coding artifacts.
    One file, no dependencies. Registers <doc-*> elements, builds the TOC,
    collects answers/comments/edits into one copyable response.
@@ -12,6 +13,9 @@ const HAS_DOM = typeof document !== 'undefined';
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const words = (s, n) => { const w = String(s).trim().split(/\s+/); return w.slice(0, n).join(' ') + (w.length > n ? '…' : ''); };
+/** Width of a label in Latin characters: a CJK character is drawn about twice as wide. */
+const WIDE = /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/;
+const vlen = (s) => { let n = 0; for (const c of String(s ?? '')) n += WIDE.test(c) ? 1.8 : 1; return n; };
 function dedent(text) {
   const lines = String(text).replace(/\t/g, '  ').split('\n');
   while (lines.length && !lines[0].trim()) lines.shift();
@@ -219,9 +223,9 @@ NW.parseMachine = function parseMachine(text) {
 /** Layer states left→right by BFS distance from initial; branches stack vertically. Returns { W, H, pos:{id:[x,y]}, NW: width, NH } */
 NW.layoutMachine = function layoutMachine(m, dir = 'LR') {
   const ids = m.order; if (!ids.length) return { W: 0, H: 0, pos: {} };
-  const longest = Math.max(...ids.map((id) => m.states[id].label.length));
+  const longest = Math.max(...ids.map((id) => vlen(m.states[id].label)));
   const NWID = clamp(Math.ceil(longest * 7.6 + 30), 90, 180), NH = 36;
-  const evLen = Math.max(0, ...m.events.map((e) => (m.short ? (e.label || e.ev) : e.ev + (e.label ? ' · ' + e.label : '')).length));
+  const evLen = Math.max(0, ...m.events.map((e) => vlen(m.short ? (e.label || e.ev) : e.ev + (e.label ? ' · ' + e.label : ''))));
   const GX = clamp(Math.ceil(evLen * 6.6 + 30), 70, 200), GY = 60, PAD = 20;
   if (m.grid?.length) { const pos = {}; let W = 0, H = 0; m.grid.forEach((row, r) => row.forEach((id, c) => { if (!id) return; const x = PAD + c * (NWID + GX), y = PAD + r * (NH + GY); pos[id] = [x, y]; W = Math.max(W, x + NWID + PAD); H = Math.max(H, y + NH + PAD); })); return { W, H: H + 8, pos, NW: NWID, NH, GX, GY, dir: 'LR', grid: true }; }
   const depth = { [m.initial]: 0 }; const q = [m.initial]; while (q.length) { const u = q.shift(); m.events.forEach((e) => { if (e.from === u && depth[e.to] == null) { depth[e.to] = depth[u] + 1; q.push(e.to); } }); }
@@ -247,9 +251,9 @@ NW.layoutFlow = function layoutFlow(m, opt = {}) {
   const wrapSub = (t) => { t = String(t || ''); if (t.length <= 24) return t ? [t] : []; const mid = Math.round(t.length / 2); let at = -1; for (let d = 0; d < mid; d++) { if (/[\s/·,]/.test(t[mid - d])) { at = mid - d; break; } if (/[\s/·,]/.test(t[mid + d])) { at = mid + d; break; } } return at > 0 ? [t.slice(0, at + (t[at] === ' ' ? 0 : 1)).trim(), t.slice(at + 1).trim()] : [t]; };
   Object.values(m.nodes).forEach((n) => { n.lines = wrap(n.label); n.subLines = wrapSub(n.sub); });
   const maxLines = Math.max(...Object.values(m.nodes).map((n) => n.lines.length + n.subLines.length * 0.85));
-  const longest = Math.max(...Object.values(m.nodes).flatMap((n) => { const pad = n.shape === 'actor' ? 22 : 0; return [...n.lines.map((l) => l.length * 7.3 + pad), ...n.subLines.map((l) => l.length * 6.5 + pad)]; }));
+  const longest = Math.max(...Object.values(m.nodes).flatMap((n) => { const pad = n.shape === 'actor' ? 22 : 0; return [...n.lines.map((l) => vlen(l) * 7.3 + pad), ...n.subLines.map((l) => vlen(l) * 6.5 + pad)]; }));
   const splitLbl = (t) => { t = String(t || ''); if (t.length <= 22) return t ? [t] : []; const mid = Math.round(t.length / 2); let at = -1; for (let d = 0; d < mid; d++) { if (t[mid - d] === ' ') { at = mid - d; break; } if (t[mid + d] === ' ') { at = mid + d; break; } } return at > 0 ? [t.slice(0, at), t.slice(at + 1)] : [t]; };
-  m.edges.forEach((e) => { e.lines = splitLbl(e.label); e.tw = e.lines.length ? Math.max(24, Math.max(...e.lines.map((l) => l.length)) * 6.4 + 12) : 0; e.th = e.lines.length > 1 ? 30 : 18; });
+  m.edges.forEach((e) => { e.lines = splitLbl(e.label); e.tw = e.lines.length ? Math.max(24, Math.max(...e.lines.map(vlen)) * 6.4 + 12) : 0; e.th = e.lines.length > 1 ? 30 : 18; });
   const maxLbl = Math.max(0, ...m.edges.map((e) => e.tw ? e.tw + 4 : 0));
   const NWID = opt.nodeW || clamp(Math.ceil(longest + 30), 120, 240), NH = Math.max(50, Math.ceil(20 + maxLines * 16)), GX = clamp(Math.ceil(maxLbl + 22), 56, 92), GY = m.edges.some((e) => e.th > 18) ? 62 : maxLbl > 0 ? 54 : 44, PAD = 28;
   let cells = {}; // id -> {c, r} possibly fractional c for auto layout
@@ -434,6 +438,24 @@ function h(tag, attrs, ...kids) {
 }
 const SVGNS = 'http://www.w3.org/2000/svg';
 const capHtml = (t) => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>');
+/* ── chrome words: a page with lang="zh…" gets Chinese chrome. The copied response stays English, because the agent reads its markers. ── */
+const ZH = /^zh\b/i.test(document.documentElement.lang || '');
+const ZH_UI = {
+  'Comment for Codex…': '写给 Codex 的批注…', Remove: '删除', Cancel: '取消', Save: '保存', Comment: '批注', 'Comment on this line': '批注这一行', Close: '关闭',
+  Revert: '还原', Edit: '编辑', Done: '完成', '✎ edited': '✎ 已修改', '✎ edited — diff goes in your response': '✎ 已修改 · 差异会写进反馈',
+  'View full size': '查看原尺寸', Figure: '图', Mockup: '界面草图', screenshot: '截图', 'Pin ': '标注 ', 'Jump to ': '跳到 ',
+  'proposed,removed,changed': '新增,删除,修改', 'async / optional': '异步 / 可选',
+  '✎ comment': '✎ 批注', restore: '恢复', '⊘ strike': '⊘ 划掉', calls: '调用', code: '代码',
+  'state machine': '状态机', 'start over': '重新开始', 'send event →': '触发事件 →', 'struck-out = not legal from here': '划线 = 当前状态不能触发',
+  now: '当前', end: '结束', path: '路径', 'Tap a state to see its screen': '点一个状态，看它的界面', 'Tap a state': '点一个状态', ' — final; no events apply': ' — 终态，没有可用事件',
+  '(no claim)': '（缺少论点）', 'inside this claim': '在下层论点里', Proposed: '拟改', new: '新增', changed: '修改', deleted: '删除',
+  Suggested: '推荐', up: '上移', down: '下移', Decisions: '决策', 'all answered': '已全部回答', 'to answer': '待回答', 'as proposed': '保留推荐',
+  'Copied — paste it back to Codex': '已复制，请粘贴回 Codex', Copied: '已复制', 'Copy response': '复制反馈', 'Clear everything?': '确定全部清除？', Reset: '重置',
+  'Your response': '你的反馈', 'Copy this and paste it to Codex.': '复制下面的内容，粘贴给 Codex。', 'This goes to Codex when you press Send.': '按“发送”后，这些内容会发给 Codex。',
+  Respond: '反馈', Contents: '目录', 'Go to the next decision': '跳到下一个决策', 'link ↗': '链接 ↗',
+  prompt: '需求', transcript: '记录', doc: '文档', tools: '工具', email: '邮件', meeting: '会议',
+};
+const L = (s) => (ZH && ZH_UI[s]) || s;
 function toast(msg) { const t = h('div', { class: 'nw-toast' }, msg); document.body.append(t); setTimeout(() => t.remove(), 1600); }
 function errBox(el, errors, what) { if (!errors.length) return; el.prepend(h('div', { class: 'nw-err' }, `${what}: \n` + errors.join('\n'))); console.warn(`[htmlplan] ${what}`, errors); }
 
@@ -462,12 +484,12 @@ document.addEventListener('pointerdown', (e) => { if (pop && !pop.contains(e.tar
 function openComment({ key, label, anchor, extra, onState }) {
   closePop();
   const cur = S.comments[key]?.text || '';
-  const ta = h('textarea', { placeholder: 'Comment for Codex…' }); ta.value = cur;
-  const del = h('button', { class: 'nw-btn danger', onclick: () => { delete S.comments[key]; onState?.(false); save(); closePop(); } }, 'Remove');
+  const ta = h('textarea', { placeholder: L('Comment for Codex…') }); ta.value = cur;
+  const del = h('button', { class: 'nw-btn danger', onclick: () => { delete S.comments[key]; onState?.(false); save(); closePop(); } }, L('Remove'));
   pop = h('div', { class: 'nw-pop', role: 'dialog' },
     h('div', { class: 'ref' }, label), extra || null, ta,
-    h('div', { class: 'row' }, cur ? del : null, h('span', { class: 'sp' }), h('button', { class: 'nw-btn', onclick: closePop }, 'Cancel'),
-      h('button', { class: 'nw-btn primary', onclick: () => { const v = ta.value.trim(); if (v) { S.comments[key] = { label, text: v, t: Date.now() }; onState?.(true); } else { delete S.comments[key]; onState?.(false); } save(); closePop(); } }, 'Save')));
+    h('div', { class: 'row' }, cur ? del : null, h('span', { class: 'sp' }), h('button', { class: 'nw-btn', onclick: closePop }, L('Cancel')),
+      h('button', { class: 'nw-btn primary', onclick: () => { const v = ta.value.trim(); if (v) { S.comments[key] = { label, text: v, t: Date.now() }; onState?.(true); } else { delete S.comments[key]; onState?.(false); } save(); closePop(); } }, L('Save'))));
   document.body.append(pop);
   const r = anchor.getBoundingClientRect(); const pw = pop.offsetWidth;
   pop.style.left = clamp(r.left + window.scrollX, 8, window.scrollX + document.documentElement.clientWidth - pw - 8) + 'px';
@@ -492,7 +514,7 @@ function commentable(el, key, label, { button = true, anchor, extra } = {}) {
   const set = (on) => el.classList.toggle('has-comment', on);
   set(!!S.comments[key]);
   const open = (ev) => { ev?.stopPropagation?.(); openComment({ key, label: typeof label === 'function' ? label() : label, anchor: anchor || el, extra: typeof extra === 'function' ? extra() : extra, onState: set }); };
-  if (button) { const b = h('button', { class: 'nw-cbtn', title: 'Comment', 'aria-label': 'Comment', onclick: open }, '+'); el.append(b); }
+  if (button) { const b = h('button', { class: 'nw-cbtn', title: L('Comment'), 'aria-label': L('Comment'), onclick: open }, '+'); el.append(b); }
   else el.addEventListener('click', (ev) => { if (ev.target.closest?.('a[href]')) return; open(ev); });
   return open;
 }
@@ -538,7 +560,7 @@ function applyIfs(ans) {
 }
 
 /* ───────────────────────── decisions: which ones the reader still has to open ───────────────────────── */
-const askQ = (ask, i) => ask.querySelector(':scope > p, :scope > h3, :scope > h4')?.textContent.trim() || ask.id || `Question ${i + 1}`;
+const askQ = (ask, i) => ask.querySelector(':scope > p, :scope > h3, :scope > h4')?.textContent.trim() || ask.id || (ZH ? `问题 ${i + 1}` : `Question ${i + 1}`);
 const askNames = (ask) => [...new Set($$('input[name], textarea[name], select[name], ol.rank[data-name]', ask).map((c) => c.name || c.dataset.name))];
 const askChanged = (ask, ans) => askNames(ask).some((nm) => !same(ans[nm], S.defaults[nm]));
 const askTodo = (ask, ans) => !S.seen[ask.id] && !askChanged(ask, ans);       // not opened and not answered
@@ -613,7 +635,7 @@ function openSheet(title, bodyNodes, footerNodes) {
   closeSheet();
   sheetBg = h('div', { class: 'nw-sheet-bg', onclick: (e) => { if (e.target === sheetBg) closeSheet(); } },
     h('div', { class: 'nw-sheet', role: 'dialog' },
-      h('header', null, h('h3', null, title), h('button', { class: 'nw-btn', onclick: closeSheet }, 'Close')),
+      h('header', null, h('h3', null, title), h('button', { class: 'nw-btn', onclick: closeSheet }, L('Close'))),
       h('div', { class: 'body' }, bodyNodes), footerNodes ? h('footer', null, footerNodes) : null));
   document.body.append(sheetBg);
 }
@@ -621,23 +643,23 @@ function openResponse() {
   const r = buildResponse();
   const pre = h('pre', null, r.md);
   const ans = readAnswers(); const asks = $$('doc-ask'); const nTodo = asks.filter((a) => askTodo(a, ans)).length;
-  const list = asks.length ? h('div', { class: 'nw-asks' }, h('div', { class: 'ttl' }, 'Decisions', h('b', { class: nTodo ? 'todo' : '' }, nTodo ? `${nTodo} to answer` : 'all answered')),
+  const list = asks.length ? h('div', { class: 'nw-asks' }, h('div', { class: 'ttl' }, L('Decisions'), h('b', { class: nTodo ? 'todo' : '' }, nTodo ? (ZH ? `${nTodo} 个待回答` : `${nTodo} to answer`) : L('all answered'))),
     asks.map((a, i) => { const st = askChanged(a, ans) ? 'changed' : S.seen[a.id] ? 'kept' : 'todo'; const no = a.closest('doc-claim')?.dataset.no;
-      return h('button', { class: 'nw-askrow ' + st, onclick: () => goToAsk(a) }, h('span', { class: 'k' }, String(i + 1)), h('span', { class: 'q' }, askQ(a, i), h('small', null, [no ? `claim ${no}` : '', words(askPick(a, ans), 9)].filter(Boolean).join(' · '))), h('span', { class: 's' }, st === 'todo' ? 'to answer' : st === 'kept' ? 'as proposed' : 'changed')); })) : null;
+      return h('button', { class: 'nw-askrow ' + st, onclick: () => goToAsk(a) }, h('span', { class: 'k' }, String(i + 1)), h('span', { class: 'q' }, askQ(a, i), h('small', null, [no ? (ZH ? `论点 ${no}` : `claim ${no}`) : '', words(askPick(a, ans), 9)].filter(Boolean).join(' · '))), h('span', { class: 's' }, st === 'todo' ? L('to answer') : st === 'kept' ? L('as proposed') : (ZH ? '已修改' : 'changed'))); })) : null;
   const state = h('span', { class: 'nw-send-state' });
   const liveOn = false, send = null;
-  const copy = h('button', { class: 'nw-btn' + (liveOn ? '' : ' primary'), onclick: async () => { try { await navigator.clipboard.writeText(r.md); toast('Copied — paste it back to Codex'); } catch { const ta = h('textarea'); ta.value = r.md; document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Copied'); } } }, 'Copy response');
-  const reset = h('button', { class: 'nw-btn danger', onclick: () => { if (reset.dataset.arm !== '1') { reset.dataset.arm = '1'; reset.textContent = 'Clear everything?'; setTimeout(() => { reset.dataset.arm = ''; reset.textContent = 'Reset'; }, 3000); return; } S.comments = {}; S.drafts = {}; S.strikes = {}; S.seen = {}; writeAnswers(S.defaults); $$('doc-calls').forEach((d) => d._reset?.()); $$('doc-draft, doc-schema').forEach((d) => d._reset?.()); try { localStorage.removeItem(KEY); } catch {} $$('.has-comment').forEach((e) => e.classList.remove('has-comment')); onFormChange(); closeSheet(); toast('Reset'); } }, 'Reset');
-  openSheet('Your response', [list, h('p', { class: 'hint' }, liveOn ? 'This goes to Codex when you press Send.' : 'Copy this and paste it to Codex.'), pre], [reset, state, h('span', { class: 'sp' }), copy, send]);
+  const copy = h('button', { class: 'nw-btn' + (liveOn ? '' : ' primary'), onclick: async () => { try { await navigator.clipboard.writeText(r.md); toast(L('Copied — paste it back to Codex')); } catch { const ta = h('textarea'); ta.value = r.md; document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast(L('Copied')); } } }, L('Copy response'));
+  const reset = h('button', { class: 'nw-btn danger', onclick: () => { if (reset.dataset.arm !== '1') { reset.dataset.arm = '1'; reset.textContent = L('Clear everything?'); setTimeout(() => { reset.dataset.arm = ''; reset.textContent = L('Reset'); }, 3000); return; } S.comments = {}; S.drafts = {}; S.strikes = {}; S.seen = {}; writeAnswers(S.defaults); $$('doc-calls').forEach((d) => d._reset?.()); $$('doc-draft, doc-schema').forEach((d) => d._reset?.()); try { localStorage.removeItem(KEY); } catch {} $$('.has-comment').forEach((e) => e.classList.remove('has-comment')); onFormChange(); closeSheet(); toast(L('Reset')); } }, L('Reset'));
+  openSheet(L('Your response'), [list, h('p', { class: 'hint' }, liveOn ? L('This goes to Codex when you press Send.') : L('Copy this and paste it to Codex.')), pre], [reset, state, h('span', { class: 'sp' }), copy, send]);
 }
 function refreshChrome() {
   if (!bar) return;
   const r = buildResponse(); const n = r.nChanged + r.nComments + r.nDrafts;
   const btn = bar.querySelector('.nw-respond'); btn.innerHTML = '';
   const ans = readAnswers(); const asks = $$('doc-ask'); const nTodo = asks.filter((a) => askTodo(a, ans)).length;
-  btn.append(r.nAsks || n ? 'Respond' : 'Comment', n ? h('span', { class: 'n' }, String(n)) : (asks.length && !nTodo ? h('span', { class: 'n ok' }, '✓') : ''));
-  const nx = bar.querySelector('.nw-next'); nx.hidden = !nTodo; nx.textContent = `${nTodo} to answer ↓`;
-  asks.forEach((ask, i) => { const ch = askChanged(ask, ans), todo = askTodo(ask, ans); const kd = ask.getAttribute('kind') || 'decision'; ask.dataset.n = `${kd[0].toUpperCase() + kd.slice(1)} ${i + 1} of ${asks.length}`; ask.classList.toggle('changed', ch); ask.classList.toggle('todo', todo); $$(`.nw-toc a[href="#${CSS.escape(ask.id)}"]`).forEach((a) => { a.classList.toggle('changed', ch); a.classList.toggle('todo', todo); }); });
+  btn.append(r.nAsks || n ? L('Respond') : L('Comment'), n ? h('span', { class: 'n' }, String(n)) : (asks.length && !nTodo ? h('span', { class: 'n ok' }, '✓') : ''));
+  const nx = bar.querySelector('.nw-next'); nx.hidden = !nTodo; nx.textContent = ZH ? `${nTodo} 个待回答 ↓` : `${nTodo} to answer ↓`;
+  asks.forEach((ask, i) => { const ch = askChanged(ask, ans), todo = askTodo(ask, ans); const kd = ask.getAttribute('kind') || (ZH ? '决策' : 'decision'); ask.dataset.n = ZH ? `${kd} ${i + 1} / ${asks.length}` : `${kd[0].toUpperCase() + kd.slice(1)} ${i + 1} of ${asks.length}`; ask.classList.toggle('changed', ch); ask.classList.toggle('todo', todo); $$(`.nw-toc a[href="#${CSS.escape(ask.id)}"]`).forEach((a) => { a.classList.toggle('changed', ch); a.classList.toggle('todo', todo); }); });
 }
 function onFormChange() { const ans = readAnswers(); applyIfs(ans); $$('doc-ask input[data-play]:checked').forEach((inp) => { const grp = inp.name || inp.dataset.play; if (lastPlay[grp] === inp.dataset.play) return; lastPlay[grp] = inp.dataset.play; const [mname, tname] = inp.dataset.play.split(/[.:\/]/); const mc = machines[mname] || Object.values(machines)[0]; if (mc) mc.play(tname || mname); }); $$('doc-ask input[type=range]').forEach((r) => { const o = r.parentElement.querySelector('output'); if (o) o.value = r.value; }); save(); }
 
@@ -651,7 +673,7 @@ function buildToc() {
     else { if (!el.id) el.id = 'ask-' + (items.length + 1); const q = el.querySelector(':scope > p, :scope > h3, :scope > h4')?.textContent.trim() || el.id; items.push({ el, cls: 'ask', text: words(q, 7) }); }
   });
   if (items.filter((i) => i.cls !== 'h3').length < 3) return null;
-  const mk = () => h('nav', { class: 'nw-toc' }, h('div', { class: 'ttl' }, 'Contents'), items.map((it) => h('a', { href: '#' + it.el.id, class: it.cls, onclick: () => closeSheet() }, it.text)));
+  const mk = () => h('nav', { class: 'nw-toc' }, h('div', { class: 'ttl' }, L('Contents')), items.map((it) => h('a', { href: '#' + it.el.id, class: it.cls, onclick: () => closeSheet() }, it.text)));
   const rail = mk(); rail.classList.add('rail'); document.body.append(rail); document.body.classList.add('has-toc');
   const links = new Map($$('a', rail).map((a) => [a.getAttribute('href').slice(1), a]));
   const io = new IntersectionObserver((ents) => { ents.forEach((en) => { if (en.isIntersecting) { $$('a.on', rail).forEach((a) => a.classList.remove('on')); links.get(en.target.id)?.classList.add('on'); } }); }, { rootMargin: '0px 0px -70% 0px' });
@@ -692,7 +714,7 @@ define('doc-code', (el) => {
     const lineNo = isDiff ? (cls === 'rem' || cls === 'hunk' ? null : lnA - 1) : start + i;
     const tr = h('tr', { class: cls }, h('td', { class: 'ln', 'data-ln': lineNo ?? (oldNo != null ? 'old' + oldNo : '') }, gutter), h('td', { class: 'src', html: codeHtml || ' ' }));
     rows.push(tr);
-    if (cls !== 'hunk') { const ref = lineNo != null ? `L${lineNo}` : `old L${oldNo} (removed)`; const key = `code:${file || el.id || 'snippet'}:${ref}`; const label = () => `${secLabel(el)} › ${file || el.getAttribute('title') || 'code'}:${ref}`; const tdLn = tr.firstChild; tr.dataset.nwT = key; if (S.comments[key]) tr.classList.add('has-comment'); tdLn.title = 'Comment on this line'; tdLn.addEventListener('click', () => openComment({ key, label: label(), anchor: tr, onState: (on) => tr.classList.toggle('has-comment', on) })); }
+    if (cls !== 'hunk') { const ref = lineNo != null ? `L${lineNo}` : `old L${oldNo} (removed)`; const key = `code:${file || el.id || 'snippet'}:${ref}`; const label = () => `${secLabel(el)} › ${file || el.getAttribute('title') || 'code'}:${ref}`; const tdLn = tr.firstChild; tr.dataset.nwT = key; if (S.comments[key]) tr.classList.add('has-comment'); tdLn.title = L('Comment on this line'); tdLn.addEventListener('click', () => openComment({ key, label: label(), anchor: tr, onState: (on) => tr.classList.toggle('has-comment', on) })); }
     if (lineNo != null && pins[lineNo]) { pins[lineNo].forEach((p) => { rows.push(pinRow(p)); p.remove(); }); delete pins[lineNo]; }
     if (cls === 'rem' && oldPins[oldNo]) { oldPins[oldNo].forEach((p) => { rows.push(pinRow(p)); p.remove(); }); delete oldPins[oldNo]; }
   });
@@ -712,10 +734,10 @@ define('doc-draft', (el) => {
   let cur = S.drafts[id] ?? orig; let editing = false;
   $$(':scope > script', el).forEach((s) => s.remove()); [...el.childNodes].forEach((n) => { if (n.nodeType === 3) n.remove(); });
   const flag = h('span', { class: 'c-edited' }); const body = h('div');
-  const btnEdit = h('button', { class: 'nw-btn', style: 'margin-left:auto;padding:5px 9px' }); const btnRevert = h('button', { class: 'nw-btn danger', style: 'padding:5px 9px' }, 'Revert');
+  const btnEdit = h('button', { class: 'nw-btn', style: 'margin-left:auto;padding:5px 9px' }); const btnRevert = h('button', { class: 'nw-btn danger', style: 'padding:5px 9px' }, L('Revert'));
   const render = () => {
-    body.innerHTML = ''; flag.textContent = cur !== orig ? '✎ edited — diff goes in your response' : ''; btnRevert.hidden = cur === orig; btnEdit.textContent = editing ? 'Done' : 'Edit';
-    if (editing) { const ta = h('textarea', { class: 'c-edit', spellcheck: 'false' }); ta.value = cur; const fit = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, window.innerHeight * .7) + 'px'; }; ta.addEventListener('input', () => { cur = ta.value; S.drafts[id] = cur; if (cur === orig) delete S.drafts[id]; flag.textContent = cur !== orig ? '✎ edited' : ''; btnRevert.hidden = cur === orig; fit(); save(); }); body.append(ta); requestAnimationFrame(fit); setTimeout(() => ta.focus(), 0); }
+    body.innerHTML = ''; flag.textContent = cur !== orig ? L('✎ edited — diff goes in your response') : ''; btnRevert.hidden = cur === orig; btnEdit.textContent = editing ? L('Done') : L('Edit');
+    if (editing) { const ta = h('textarea', { class: 'c-edit', spellcheck: 'false' }); ta.value = cur; const fit = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, window.innerHeight * .7) + 'px'; }; ta.addEventListener('input', () => { cur = ta.value; S.drafts[id] = cur; if (cur === orig) delete S.drafts[id]; flag.textContent = cur !== orig ? L('✎ edited') : ''; btnRevert.hidden = cur === orig; fit(); save(); }); body.append(ta); requestAnimationFrame(fit); setTimeout(() => ta.focus(), 0); }
     else { const html = cur === orig ? esc(cur) : (NW.diffWords(orig, cur) ?? esc(cur)); body.append(h('div', { class: 'c-body', style: 'padding:10px 14px;white-space:pre-wrap;font:13px/1.6 var(--mono)', html })); }
   };
   btnEdit.onclick = () => { editing = !editing; render(); }; btnRevert.onclick = () => { cur = orig; delete S.drafts[id]; editing = false; render(); save(); };
@@ -742,7 +764,7 @@ function shapePath(shape, x, y, w, hh) {
   }
 }
 function fitFigure(frame, svgEl, W) {
-  const btn = h('button', { class: 'fig-zoom', title: 'View full size', 'aria-label': 'View full size', onclick: (e) => { e.stopPropagation(); const big = svgEl.cloneNode(true); big.style.width = W + 'px'; big.querySelectorAll('[tabindex]').forEach((n) => n.removeAttribute('tabindex')); openSheet('Figure', h('div', { class: 'fig-frame', style: 'overflow:auto;max-height:70vh' }, big)); } }, '⤢');
+  const btn = h('button', { class: 'fig-zoom', title: L('View full size'), 'aria-label': L('View full size'), onclick: (e) => { e.stopPropagation(); const big = svgEl.cloneNode(true); big.style.width = W + 'px'; big.querySelectorAll('[tabindex]').forEach((n) => n.removeAttribute('tabindex')); openSheet(L('Figure'),h('div', { class: 'fig-frame', style: 'overflow:auto;max-height:70vh' }, big)); } }, '⤢');
   frame.style.position = 'relative'; frame.append(btn);
   const fit = () => { const avail = frame.clientWidth - 28; const s = clamp(avail / W, 0.5, 1); frame.dataset.scale = s.toFixed(2); svgEl.style.width = (W * s) + 'px'; btn.hidden = s > 0.9; };
   new ResizeObserver(fit).observe(frame); fit();
@@ -779,7 +801,7 @@ define('doc-flow', (el) => {
       const extra = h('div', { style: 'margin:0 0 8px;font-size:14px' }, h('div', { style: 'font-weight:650;margin-bottom:4px' }, n.label.replace(/\n/g, ' '), n.sub ? h('small', { style: 'margin-left:6px;font-family:var(--mono)' }, n.sub) : null),
         n.detail.length ? h('div', { style: 'color:var(--ink-2);white-space:pre-wrap' }, n.detail.join('\n')) : null,
         templates[n.id] ? h('div', { style: 'margin-top:8px' }, templates[n.id].content.cloneNode(true)) : null,
-        n.href ? h('a', { href: n.href, style: 'display:inline-block;margin-top:6px;font-size:13px', onclick: () => closePop() }, 'Jump to ' + n.href + ' →') : null);
+        n.href ? h('a', { href: n.href, style: 'display:inline-block;margin-top:6px;font-size:13px', onclick: () => closePop() }, L('Jump to ') + n.href + ' →') : null);
       openComment({ key, label: `${secLabel(el)} › diagram${el.getAttribute('caption') ? ' “' + words(el.getAttribute('caption'), 5) + '”' : ''} › node “${n.label.replace(/\n/g, ' ')}”`, anchor: g, extra, onState: (on) => g.classList.toggle('has-comment', on) });
       requestAnimationFrame(() => { if (pop) { upgradeWithin(pop); } });
     };
@@ -788,8 +810,8 @@ define('doc-flow', (el) => {
   $$(':scope > script', el).forEach((s) => s.remove()); [...el.childNodes].forEach((n) => { if (n.nodeType === 3) n.remove(); });
   const frame = h('div', { class: 'fig-frame' }); frame.append(root);
   const has = (mk) => m.edges.some((e) => e.mark === mk) || Object.values(m.nodes).some((n) => n.mark === mk); const hasDash = m.edges.some((e) => e.dash);
-  const [lNew, lGone, lMod] = (el.getAttribute('marks') || 'proposed,removed,changed').split(',').map((x) => x.trim());
-  const legend = (has('new') || has('gone') || has('mod') || hasDash) ? h('span', { class: 'legend' }, hasDash ? h('span', null, h('i', { class: 'dash' }), el.getAttribute('dashed') || 'async / optional') : null, has('new') ? h('span', null, h('i', { class: 'new' }), lNew) : null, has('gone') ? h('span', null, h('i', { class: 'gone' }), lGone) : null, has('mod') ? h('span', null, h('i', { class: 'mod' }), lMod || 'changed') : null) : null;
+  const [lNew, lGone, lMod] = (el.getAttribute('marks') || L('proposed,removed,changed')).split(',').map((x) => x.trim());
+  const legend = (has('new') || has('gone') || has('mod') || hasDash) ? h('span', { class: 'legend' }, hasDash ? h('span', null, h('i', { class: 'dash' }), el.getAttribute('dashed') || L('async / optional')) : null, has('new') ? h('span', null, h('i', { class: 'new' }), lNew) : null, has('gone') ? h('span', null, h('i', { class: 'gone' }), lGone) : null, has('mod') ? h('span', null, h('i', { class: 'mod' }), lMod || L('changed')) : null) : null;
   el.prepend(el.getAttribute('label') ? h('div', { class: 'mk-label' }, el.getAttribute('label')) : '', frame, (el.getAttribute('caption') || legend) ? h('div', { class: 'fig-cap' }, h('span', { html: capHtml(el.getAttribute('caption') || '') }), legend) : '');
   if (el.classList.contains('wide') || lay.W > 760) el.classList.add('wide');
   fitFigure(frame, root, lay.W);
@@ -800,7 +822,7 @@ define('doc-seq', (el) => {
   const m = NW.parseSeq(srcOf(el)); errBox(el, m.errors, 'doc-seq');
   const n = m.actors.length; const wrapA = (t) => t.length > 18 && /[\s/]/.test(t) ? (() => { const mid = Math.round(t.length / 2); let at = -1; for (let d = 0; d < mid; d++) { if (/[\s/]/.test(t[mid - d])) { at = mid - d; break; } if (/[\s/]/.test(t[mid + d])) { at = mid + d; break; } } return at > 0 ? [t.slice(0, at + (t[at] === ' ' ? 0 : 1)).trim(), t.slice(at + 1).trim()] : [t]; })() : [t];
   m.actors.forEach((a) => { a.lines = wrapA(a.label); });
-  const COL = clamp(Math.ceil(Math.max(...m.actors.map((a) => Math.max(...a.lines.map((l) => l.length)) * 7.4 + 44))), 112, 240), PAD = 24, TOP = 20, AH = m.actors.some((a) => a.lines.length > 1) ? 44 : 34;
+  const COL = clamp(Math.ceil(Math.max(...m.actors.map((a) => Math.max(...a.lines.map(vlen)) * 7.4 + 44))), 112, 240), PAD = 24, TOP = 20, AH = m.actors.some((a) => a.lines.length > 1) ? 44 : 34;
   const X = (id) => PAD + m.actors.findIndex((a) => a.id === id) * COL + COL / 2;
   let W = PAD * 2 + n * COL; let y = TOP + AH + 18; let maxRight = 0;
   const root = svg('svg', { class: 'nw seq', xmlns: SVGNS }); root.append(arrowDefs());
@@ -808,11 +830,11 @@ define('doc-seq', (el) => {
   const wrapTxt = (t, max = 26) => { const out = []; let cur = ''; t.split(/\s+/).forEach((w) => { if ((cur + ' ' + w).trim().length > max && cur) { out.push(cur); cur = w; } else cur = (cur + ' ' + w).trim(); }); if (cur) out.push(cur); return out; };
   m.steps.forEach((s, i) => {
     if (s.kind === 'div') { root.append(svg('g', { class: 'sdiv' }, svg('line', { x1: PAD - 10, x2: W - PAD + 10, y1: y + 10, y2: y + 10 }), s.text ? svg('text', { x: W / 2, y: y + 4 }, s.text) : null)); y += 34; return; }
-    if (s.kind === 'note') { const xs = s.over.map(X); let cx = (Math.min(...xs) + Math.max(...xs)) / 2; const lines = wrapTxt(s.text, 30); const bw = Math.max(120, Math.min(220, Math.max(...lines.map((l) => l.length)) * 6.6 + 20), Math.abs(Math.max(...xs) - Math.min(...xs)) + 40); const bh = 12 + lines.length * 15; cx = clamp(cx, bw / 2 + 6, W - bw / 2 - 6); const g = svg('g', { class: 'snote' }, svg('rect', { x: cx - bw / 2, y, width: bw, height: bh })); lines.forEach((l, k) => g.append(svg('text', { x: cx, y: y + 13 + k * 15 }, l))); root.append(g); y += bh + 14; return; }
+    if (s.kind === 'note') { const xs = s.over.map(X); let cx = (Math.min(...xs) + Math.max(...xs)) / 2; const lines = wrapTxt(s.text, 30); const bw = Math.max(120, Math.min(220, Math.max(...lines.map(vlen)) * 6.6 + 20),Math.abs(Math.max(...xs) - Math.min(...xs)) + 40); const bh = 12 + lines.length * 15; cx = clamp(cx, bw / 2 + 6, W - bw / 2 - 6); const g = svg('g', { class: 'snote' }, svg('rect', { x: cx - bw / 2, y, width: bw, height: bh })); lines.forEach((l, k) => g.append(svg('text', { x: cx, y: y + 13 + k * 15 }, l))); root.append(g); y += bh + 14; return; }
     const x1 = X(s.from), x2 = X(s.to); const self = s.from === s.to; const left = self && m.actors.findIndex((a) => a.id === s.from) === n - 1 && n > 1; const lines = s.text ? wrapTxt(s.text, self ? 24 : Math.max(16, Math.abs(x2 - x1) / 6.3)) : [];
     const cls = ['msg', s.dash && 'dash', s.mark].filter(Boolean).join(' '); const mk = s.mark === 'new' ? 'nw-arr-new' : s.mark === 'gone' ? 'nw-arr-gone' : 'nw-arr';
     const g = svg('g', { class: cls, tabindex: 0 });
-    const textH = lines.length * 14; lines.forEach((l, k) => { g.append(svg('text', { x: self ? (left ? x1 - 40 : x1 + 40) : (x1 + x2) / 2, y: y + k * 14 + 4, style: self ? `text-anchor:${left ? 'end' : 'start'}` : null }, l)); maxRight = Math.max(maxRight, self ? (left ? 0 : x1 + 40 + l.length * 6.8) : (x1 + x2) / 2 + l.length * 3.4); });
+    const textH = lines.length * 14; lines.forEach((l, k) => { g.append(svg('text', { x: self ? (left ? x1 - 40 : x1 + 40) : (x1 + x2) / 2, y: y + k * 14 + 4, style: self ? `text-anchor:${left ? 'end' : 'start'}` : null }, l)); maxRight = Math.max(maxRight, self ? (left ? 0 : x1 + 40 + vlen(l) * 6.8) : (x1 + x2) / 2 + vlen(l) * 3.4); });
     const ay = y + textH + 3;
     if (self) { const d = left ? -1 : 1; g.append(svg('path', { d: `M${x1},${ay} L${x1 + 30 * d},${ay} L${x1 + 30 * d},${ay + 18} L${x1 + 2 * d},${ay + 18}`, 'marker-end': `url(#${mk})` })); }
     else g.append(svg('path', { d: `M${x1},${ay} L${x2 + (x2 > x1 ? -2 : 2)},${ay}`, 'marker-end': `url(#${mk})` }));
@@ -824,7 +846,7 @@ define('doc-seq', (el) => {
     y += textH + (self ? 34 : 20);
   });
   const H = y + 16; W = Math.max(W, Math.ceil(maxRight + 16)); $$('.sdiv line', root).forEach((l) => l.setAttribute('x2', W - PAD + 10));
-  m.actors.forEach((a) => { const x = X(a.id); lifeG.append(svg('line', { class: 'life', x1: x, x2: x, y1: TOP + AH, y2: H - 8 })); const tw = Math.max(80, Math.min(COL - 10, Math.max(...a.lines.map((l) => l.length)) * 7.4 + 24)); const ag = svg('g', { class: 'actor' }, svg('rect', { x: x - tw / 2, y: TOP, width: tw, height: AH, rx: 6 })); a.lines.forEach((l, k) => ag.append(svg('text', { x, y: TOP + AH / 2 + (k - (a.lines.length - 1) / 2) * 14 }, l))); lifeG.append(ag); });
+  m.actors.forEach((a) => { const x = X(a.id); lifeG.append(svg('line', { class: 'life', x1: x, x2: x, y1: TOP + AH, y2: H - 8 })); const tw = Math.max(80, Math.min(COL - 10, Math.max(...a.lines.map(vlen)) * 7.4 + 24)); const ag = svg('g', { class: 'actor' }, svg('rect', { x: x - tw / 2, y: TOP, width: tw, height: AH, rx: 6 })); a.lines.forEach((l, k) => ag.append(svg('text', { x, y: TOP + AH / 2 + (k - (a.lines.length - 1) / 2) * 14 }, l))); lifeG.append(ag); });
   root.setAttribute('viewBox', `0 0 ${W} ${H}`); root.setAttribute('width', W); root.setAttribute('height', H);
   $$(':scope > script', el).forEach((s) => s.remove()); [...el.childNodes].forEach((n) => { if (n.nodeType === 3) n.remove(); });
   const frame = h('div', { class: 'fig-frame' }); frame.append(root);
@@ -843,14 +865,14 @@ function textSchema(el) {
   const pins = $$(':scope > doc-pin', el); el.replaceChildren();
   let cur = S.drafts[id] ?? base, editing = false;
   const btn = (txt, fn, cls = '') => h('button', { class: 'nw-btn ' + cls, style: 'padding:5px 9px', onclick: fn }, txt);
-  const revert = () => btn('Revert', () => { cur = base; delete S.drafts[id]; editing = false; render(); save(); }, 'danger');
+  const revert = () => btn(L('Revert'), () => { cur = base; delete S.drafts[id]; editing = false; render(); save(); }, 'danger');
   const render = () => {
     const changed = cur !== base; const c = h('doc-code', { id: id + '-text' }); c._nw = true;
     if (editing) {
       const ta = h('textarea', { class: 'c-edit', spellcheck: 'false', 'aria-label': label }); ta.value = cur;
       const fit = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 4, window.innerHeight * .7) + 'px'; };
       ta.addEventListener('input', () => { cur = ta.value; if (cur === base) delete S.drafts[id]; else S.drafts[id] = cur; fit(); save(); });
-      c.append(h('div', { class: 'c-head' }, h('span', { class: 'c-file' }, label), h('span', { class: 'c-lang' }, el.getAttribute('lang') || ''), btn('Done', () => { editing = false; render(); })), ta);
+      c.append(h('div', { class: 'c-head' }, h('span', { class: 'c-file' }, label), h('span', { class: 'c-lang' }, el.getAttribute('lang') || ''), btn(L('Done'), () => { editing = false; render(); })), ta);
       el.replaceChildren(c); requestAnimationFrame(fit); setTimeout(() => ta.focus({ preventScroll: true }), 0); return;
     }
     ['lang', 'caption', 'wrap'].forEach((k) => { if (el.hasAttribute(k)) c.setAttribute(k, el.getAttribute(k)); });
@@ -858,7 +880,7 @@ function textSchema(el) {
     else { ['file', 'lines', 'start', 'sha', 'hl'].forEach((k) => { if (el.hasAttribute(k)) c.setAttribute(k, el.getAttribute(k)); }); if (!file) c.setAttribute('title', label); if (isDiff) c.setAttribute('diff', ''); }
     c.append(h('script', { type: 'text/plain' }, changed ? NW.diffLines(base, cur).map((x) => x.t + x.s).join('\n') : raw)); if (!changed) c.append(...pins.map((p) => p.cloneNode(true)));
     code(c);
-    c.querySelector('.c-head').append(changed ? h('span', { class: 'c-edited' }, '✎ edited') : '', btn('Edit', () => { editing = true; render(); }), changed ? revert() : '');
+    c.querySelector('.c-head').append(changed ? h('span', { class: 'c-edited' }, L('✎ edited')) : '', btn(L('Edit'), () => { editing = true; render(); }), changed ? revert() : '');
     el.replaceChildren(c);
   };
   el._diff = () => (cur !== base ? { label, diff: NW.unifiedDiff(base, cur, label) } : null);
@@ -937,8 +959,8 @@ define('doc-calls', (el) => {
         const acts = h('span', { class: 'cl-acts' });
         const doComment = (ev) => { ev?.stopPropagation(); openComment({ key: `calls:${cid}:${n.id}`, label: label(n), anchor: row, onState: (on) => row.classList.toggle('has-comment', on) }); };
         const doStrike = (ev) => { ev?.stopPropagation(); if (self) { delete S.strikes[strikeKey(n)]; save(); render(); return; } const before = fileRows(); const reason = '';   /* no dialog: the artifact viewer blocks prompt(); the reader gives a reason with the row's comment */ S.strikes[strikeKey(n)] = { label: `${path(n)}${n.loc ? ' · ' + n.loc : ''}`, reason: reason.trim(), t: Date.now() }; const after = fileRows(); S.strikes[strikeKey(n)].drops = Object.keys(before).filter((f) => !after[f]); save(); render(); };
-        acts.append(h('button', { onclick: doComment }, '✎ comment'));
-        if (n.mark !== ' ' && !n.gap) acts.append(h('button', { class: 'x', onclick: doStrike }, self ? 'restore' : '⊘ strike'));
+        acts.append(h('button', { onclick: doComment }, L('✎ comment')));
+        if (n.mark !== ' ' && !n.gap) acts.append(h('button', { class: 'x', onclick: doStrike }, self ? L('restore') : L('⊘ strike')));
         row.append(acts);
         if (!n.gap) row.addEventListener('click', (ev) => { if (ev.target.closest('.cl-acts')) return; if (tpl || exc) { open = open === n ? null : n; render(); } else { row.classList.add('cl-flash'); setTimeout(() => row.classList.remove('cl-flash'), 500); } $$('.cl-row.sel', rows).forEach((r) => r.classList.remove('sel')); rows.querySelector(`.cl-row[data-id="${n.id}"]`)?.classList.add('sel'); });   // a tapped row keeps its actions showing: touch screens have no hover
         rows.append(row);
@@ -947,7 +969,7 @@ define('doc-calls', (el) => {
           if (exc) {
             // code excerpt: file · line header, ±N lines, target line highlighted
             const lines = exc.text.replace(/\n$/, '').split('\n'); const target = +n.line;
-            const hd = h('div', { class: 'cl-ex-hd' }, h('span', { class: 'cl-ex-path' }, n.file), h('span', { class: 'cl-ex-kind' }, 'code'), h('span', { class: 'cl-ex-range' }, `L${exc.start}–${exc.start + lines.length - 1}${exc.sha ? ' @ ' + exc.sha : ''}`), n.note ? h('span', { class: 'cl-ex-note' }, n.note) : null);
+            const hd = h('div', { class: 'cl-ex-hd' }, h('span', { class: 'cl-ex-path' }, n.file), h('span', { class: 'cl-ex-kind' }, L('code')), h('span', { class: 'cl-ex-range' }, `L${exc.start}–${exc.start + lines.length - 1}${exc.sha ? ' @ ' + exc.sha : ''}`), n.note ? h('span', { class: 'cl-ex-note' }, n.note) : null);
             const lang = (n.file.match(/\.(\w+)$/) || [])[1] || 'plain';
             // an excerpt that starts mid block-comment: leading " * " lines up to the closing "*/" are comment, not code
             let lead = 0; if (/^\s*\*/.test(lines[0]) && !/^\s*\*\//.test(lines[0])) { while (lead < lines.length && /^\s*\*/.test(lines[lead])) { lead++; if (/\*\//.test(lines[lead - 1])) break; } }
@@ -963,8 +985,8 @@ define('doc-calls', (el) => {
       walk(root);
     });
     const struckN = Object.keys(S.strikes).filter((k) => k.startsWith(`calls:${cid}:`)).length;
-    head.innerHTML = ''; head.append(h('span', { class: 'cl-kind' }, 'calls'), el.getAttribute('title') ? h('span', { class: 'cl-title' }, el.getAttribute('title')) : '', h('span', { class: 'cl-counts' }, h('b', { class: 'p' }, '+' + plus), ' ', h('b', { class: 'm' }, '−' + minus), ' ', h('b', { class: 'a' }, '~' + tilde), ` · ${m.roots.length} entrypoint${m.roots.length === 1 ? '' : 's'}`, struckN ? ` · ${struckN} struck` : ''));
-    if (filesBox) { const f = fileRows(); filesBox.innerHTML = ''; filesBox.append(h('div', { class: 'cl-files-h' }, `files touched · ${Object.keys(f).length}`)); Object.entries(f).sort(([a], [b]) => a.localeCompare(b)).forEach(([file, v]) => { const i = file.lastIndexOf('/'); filesBox.append(h('div', { class: 'cl-file' + (v.new ? ' new' : ' mod') }, h('span', { class: 'mk' }, v.new ? '+' : '~'), h('span', { class: 'nm' }, h('i', null, i >= 0 ? file.slice(0, i + 1) : ''), file.slice(i + 1)), h('small', null, `${v.n}`))); }); }
+    head.innerHTML = ''; head.append(h('span', { class: 'cl-kind' }, L('calls')), el.getAttribute('title') ? h('span', { class: 'cl-title' }, el.getAttribute('title')) : '', h('span', { class: 'cl-counts' }, h('b', { class: 'p' }, '+' + plus), ' ', h('b', { class: 'm' }, '−' + minus), ' ', h('b', { class: 'a' }, '~' + tilde), ZH ? ` · ${m.roots.length} 个入口` : ` · ${m.roots.length} entrypoint${m.roots.length === 1 ? '' : 's'}`, struckN ? (ZH ? ` · 划掉 ${struckN} 条` : ` · ${struckN} struck`) : ''));
+    if (filesBox) { const f = fileRows(); filesBox.innerHTML = ''; filesBox.append(h('div', { class: 'cl-files-h' }, ZH ? `涉及文件 · ${Object.keys(f).length}` : `files touched · ${Object.keys(f).length}`)); Object.entries(f).sort(([a], [b]) => a.localeCompare(b)).forEach(([file, v]) => { const i = file.lastIndexOf('/'); filesBox.append(h('div', { class: 'cl-file' + (v.new ? ' new' : ' mod') }, h('span', { class: 'mk' }, v.new ? '+' : '~'), h('span', { class: 'nm' }, h('i', null, i >= 0 ? file.slice(0, i + 1) : ''), file.slice(i + 1)), h('small', null, `${v.n}`))); }); }
   };
   render();
   const body = filesBox ? h('div', { class: 'cl-split' }, rows, filesBox) : rows;
@@ -1005,7 +1027,7 @@ define('doc-machine', (el) => {
       else if (curDir === 'TB') { const down = y2 > y1; const sx = x1 + (x2 > x1 ? NWID - 24 : 24), tx = x2 + NWID / 2 + (x2 > x1 ? -30 : 30); const sy = down ? y1 + NH : y1, ty = down ? y2 - 2 : y2 + NH + 2; d = `M${sx},${sy} C${sx},${sy + (ty - sy) * 0.55} ${tx},${sy + (ty - sy) * 0.45} ${tx},${ty}`; lx = tx + (tx > sx ? 6 : -6); ly = ty - (down ? 22 : -22); anchor = tx > sx ? 'start' : 'end'; }
       else { const dir2 = x2 > x1 ? 1 : -1; const sx = dir2 > 0 ? x1 + NWID : x1, tx = dir2 > 0 ? x2 - 2 : x2 + NWID + 2; const sy = y1 + NH / 2 + (dup ? dup * 8 : 0), ty = y2 + NH / 2; d = `M${sx},${sy} C${sx + dir2 * 40},${sy} ${tx - dir2 * 40},${ty} ${tx},${ty}`; lx = (sx + tx) / 2 + (dir2 > 0 ? 6 : -6); ly = (sy + ty) / 2 + (ty > sy ? -8 : 10) + dup * 14; anchor = dir2 > 0 ? 'start' : 'end'; if (Math.abs(x2 - x1) > NWID + lay.GX + 10) { lx = (sx + tx) / 2; anchor = 'middle'; } }
       const mk = e.mark === 'new' ? 'nw-arr-new' : e.mark === 'gone' ? 'nw-arr-gone' : 'nw-arr';
-      const tw = txt.length * 6.4 + 10; g.append(svg('path', { d, 'marker-end': `url(#${mk})` }), svg('rect', { class: 'lbl', x: anchor === 'start' ? lx - 4 : anchor === 'end' ? lx - tw + 4 : lx - tw / 2, y: ly - 8, width: tw, height: 15, rx: 3 }), svg('text', { x: lx, y: ly, style: `text-anchor:${anchor}` }, txt));
+      const tw = vlen(txt) * 6.4 + 10; g.append(svg('path', { d, 'marker-end': `url(#${mk})` }), svg('rect', { class: 'lbl', x: anchor === 'start' ? lx - 4 : anchor === 'end' ? lx - tw + 4 : lx - tw / 2, y: ly - 8, width: tw, height: 15, rx: 3 }), svg('text', { x: lx, y: ly, style: `text-anchor:${anchor}` }, txt));
       g.setAttribute('tabindex', '0'); edgeG.append(g);
       const key = `machine:${name}:${e.from}-${e.ev}`; if (S.comments[key]) g.classList.add('has-comment'); g.addEventListener('click', () => openComment({ key, label: `${secLabel(el)} › ${title} › ${e.from} —${e.ev}→ ${e.to}`, anchor: g, onState: (on) => g.classList.toggle('has-comment', on) }));
       return g;
@@ -1017,11 +1039,11 @@ define('doc-machine', (el) => {
     frame.innerHTML = ''; frame.append(root); root.style.width = '';
   };
   // ── chrome ──
-  const head = h('div', { class: 'mc-head' }, h('span', { class: 'mc-kind' }, 'state machine'), h('span', { class: 'mc-title' }, title), h('span', { class: 'mc-meta' }), h('span', { class: 'mc-sp' }));
-  const resetBtn = h('button', { class: 'mc-btn', onclick: () => api.reset() }, 'start over'); head.append(resetBtn);
+  const head = h('div', { class: 'mc-head' }, h('span', { class: 'mc-kind' }, L('state machine')), h('span', { class: 'mc-title' }, title), h('span', { class: 'mc-meta' }), h('span', { class: 'mc-sp' }));
+  const resetBtn = h('button', { class: 'mc-btn', onclick: () => api.reset() }, L('start over')); head.append(resetBtn);
   const say = h('div', { class: 'mc-say' }); const frame = h('div', { class: 'mc-fig' });
-  const evRow = h('div', { class: 'mc-events' }, h('span', { class: 'lbl' }, 'send event →')); const evBtns = {}; evNames.forEach((ev) => { const b = h('button', { class: 'mc-ev', onclick: () => api.fire(ev) }, ev); evBtns[ev] = b; evRow.append(b); });
-  evRow.append(h('span', { class: 'mc-hint' }, 'struck-out = not legal from here'));
+  const evRow = h('div', { class: 'mc-events' }, h('span', { class: 'lbl' }, L('send event →'))); const evBtns = {}; evNames.forEach((ev) => { const b = h('button', { class: 'mc-ev', onclick: () => api.fire(ev) }, ev); evBtns[ev] = b; evRow.append(b); });
+  evRow.append(h('span', { class: 'mc-hint' }, L('struck-out = not legal from here')));
   const logBox = h('div', { class: 'mc-path' }); const now = h('div', { class: 'mc-now' });
   const cap = el.getAttribute('caption') ? h('div', { class: 'fig-cap' }, el.getAttribute('caption')) : null;
   // ── simple view: one block per state; the current block's ways out are buttons ──
@@ -1032,11 +1054,11 @@ define('doc-machine', (el) => {
       const st = m.states[id]; const here = id === cur; const outs = m.events.filter((e) => e.from === id && e.mark !== 'gone');
       const way = (e) => `${e.ev}${e.label ? ' · ' + e.label : ''} → ${m.states[e.to].label}`;
       const card = h('div', { class: ['mc-card', here && 'cur', been.has(id) && !here && 'been'].filter(Boolean).join(' '), 'data-state': id },
-        h('div', { class: 'mc-name' }, st.label, here ? h('span', { class: 'mc-here' }, 'now') : null),
+        h('div', { class: 'mc-name' }, st.label, here ? h('span', { class: 'mc-here' }, L('now')) : null),
         st.bind.say ? h('div', { class: 'mc-desc' }, st.bind.say) : null,
         h('div', { class: 'mc-outs' }, outs.length ? outs.map((e) => here
           ? h('button', { class: 'mc-go' + (e.mark === 'new' ? ' new' : ''), onclick: (ev) => { ev.stopPropagation(); api.fire(e.ev); } }, way(e))
-          : h('span', { class: 'mc-to' + (e.mark === 'new' ? ' new' : '') }, way(e))) : h('span', { class: 'mc-to' }, 'end')));
+          : h('span', { class: 'mc-to' + (e.mark === 'new' ? ' new' : '') }, way(e))) : h('span', { class: 'mc-to' }, L('end'))));
       card.addEventListener('click', (ev) => { if (ev.target.closest('button') || here) return; const e = m.events.find((x) => x.from === cur && x.to === id && x.mark !== 'gone'); if (e) api.fire(e.ev); else api.goto(id); });
       commentable(card, `machine:${name}:${id}`, () => `${secLabel(el)} › ${title} › state “${st.label}”`);
       strip.append(card);
@@ -1067,11 +1089,11 @@ define('doc-machine', (el) => {
     m.order.forEach((id) => (m.states[id].bind.set || []).forEach((kv) => { const [k] = kv.split('='); $$(`[data-field="${CSS.escape(k)}"]`).forEach((t) => t.classList.remove('mc-set')); }));
     (b.set || []).forEach((kv) => { const i = kv.indexOf('='); const k = i < 0 ? kv : kv.slice(0, i), v = i < 0 ? '' : kv.slice(i + 1); $$(`[data-field="${CSS.escape(k)}"]`).forEach((t) => { if (i >= 0) t.textContent = v; t.classList.add('mc-set'); }); });
     if (simple) renderStrip(); else {
-    now.replaceChildren(h('b', null, st.label), h('span', null, b.say || ''), h('i', null, screens.length ? 'Tap a state to see its screen' : 'Tap a state'));
+    now.replaceChildren(h('b', null, st.label), h('span', null, b.say || ''), h('i', null, screens.length ? L('Tap a state to see its screen') : L('Tap a state')));
     // say
-    say.innerHTML = ''; say.append(h('span', { class: 'now' }, 'now'), h('code', null, st.label), b.say ? ' — ' + b.say : (st.final ? ' — final; no events apply' : ''));
+    say.innerHTML = ''; say.append(h('span', { class: 'now' }, L('now')), h('code', null, st.label), b.say ? ' — ' + b.say : (st.final ? L(' — final; no events apply') : ''));
     // header meta + events
-    head.querySelector('.mc-meta').textContent = `${m.order.length} states · ${m.events.length} events · step ${n}`;
+    head.querySelector('.mc-meta').textContent = ZH ? `${m.order.length} 个状态 · ${m.events.length} 个事件 · 第 ${n} 步` : `${m.order.length} states · ${m.events.length} events · step ${n}`;
     evNames.forEach((ev) => { const legal = m.events.some((e) => e.from === cur && e.ev === ev && e.mark !== 'gone'); evBtns[ev].disabled = !legal; });
     // svg classes
     m.order.forEach((id) => { const g = nodeEls[id]; g.classList.toggle('cur', id === cur); g.classList.toggle('been', been.has(id) && id !== cur); const e = m.events.find((x) => x.from === cur && x.to === id && x.mark !== 'gone'); g.classList.toggle('next', !!e); const t = g.querySelector('title'); if (e) { if (!t) g.append(svg('title', null, `${e.ev} →`)); else t.textContent = `${e.ev} →`; } else if (t) t.textContent = m.states[id].bind.say || ''; });
@@ -1079,7 +1101,7 @@ define('doc-machine', (el) => {
     }
     el.dataset.state = cur;
   };
-  const addLog = (ev, to) => { log.push({ n, ev, to }); logBox.innerHTML = ''; logBox.append(h('span', { class: 'lbl' }, 'path')); log.forEach((l, i) => { if (i) logBox.append(h('span', { class: 'ev' }, l.ev), h('span', { class: 'arr' }, '→')); logBox.append(h('b', { class: i === log.length - 1 ? 'cur' : '' }, l.to)); }); logBox.hidden = log.length < 2; };
+  const addLog = (ev, to) => { log.push({ n, ev, to }); logBox.innerHTML = ''; logBox.append(h('span', { class: 'lbl' }, L('path'))); log.forEach((l, i) => { if (i) logBox.append(h('span', { class: 'ev' }, l.ev), h('span', { class: 'arr' }, '→')); logBox.append(h('b', { class: i === log.length - 1 ? 'cur' : '' }, l.to)); }); logBox.hidden = log.length < 2; };
   const api = {
     name, get state() { return cur; }, has: (id) => !!m.states[id],
     fire(ev, silent) { const e = m.events.find((x) => x.from === cur && x.ev === ev && x.mark !== 'gone'); if (!e) return false; lastEv = m.events.indexOf(e); cur = e.to; been.add(cur); n++; addLog(ev, m.states[cur].label); applyBind(); if (!silent) { onFormChange(); } return true; },
@@ -1121,7 +1143,7 @@ function mountPins(host, layer, keyBase, labelBase, getScale = () => 1, resolveR
   const pins = $$(':scope > doc-pin', host); if (!pins.length) return () => {};
   const dots = pins.map((p, i) => {
     const num = i + 1;
-    const dot = h('button', { class: 'nw-pin-dot', 'aria-label': 'Pin ' + num }, String(num));
+    const dot = h('button', { class: 'nw-pin-dot', 'aria-label': L('Pin ') + num }, String(num));
     const body = p.innerHTML;
     dot.addEventListener('click', (ev) => { ev.stopPropagation(); openNote({ anchor: dot, num, title: p.getAttribute('title'), html: body }); });   // a pin only describes; comments go on the mockup itself
     layer.append(dot); p.remove();
@@ -1136,7 +1158,7 @@ function mountPins(host, layer, keyBase, labelBase, getScale = () => 1, resolveR
       dot.style.cssText = `left:calc(${x}% + ${dx || 0}px);top:calc(${y}% + ${dy || 0}px);width:${size}px;height:${size}px;font-size:${Math.round(size / 2)}px;line-height:${size - 4}px`; }); };
   place(); return place;
 }
-function mockZoomButton(stage, build) { const b = h('button', { class: 'fig-zoom', title: 'View full size', 'aria-label': 'View full size', onclick: (e) => { e.stopPropagation(); openSheet('Mockup', h('div', { style: 'overflow:auto;max-height:72vh' }, build())); } }, '⤢'); stage.append(b); return b; }
+function mockZoomButton(stage, build) { const b = h('button', { class: 'fig-zoom', title: L('View full size'), 'aria-label': L('View full size'), onclick: (e) => { e.stopPropagation(); openSheet(L('Mockup'),h('div', { style: 'overflow:auto;max-height:72vh' }, build())); } }, '⤢'); stage.append(b); return b; }
 define('doc-mock', (el) => {
   const frame = el.getAttribute('frame') || 'browser';
   const W = +(el.getAttribute('w') || el.getAttribute('width') || { phone: 390, browser: 1024, terminal: 640, desktop: 900, none: 600 }[frame] || 800);
@@ -1171,7 +1193,7 @@ define('doc-mock', (el) => {
 define('doc-shot', (el) => {
   const src = el.getAttribute('src'); const label = el.getAttribute('label'); const sid = el.id || $$('doc-shot').indexOf(el);
   const frame = el.getAttribute('frame');
-  const img = h('img', { src, alt: label || el.getAttribute('caption') || 'screenshot', style: 'display:block;width:100%;height:auto' });
+  const img = h('img', { src, alt: label || el.getAttribute('caption') || L('screenshot'),style: 'display:block;width:100%;height:auto' });
   const inner = frame ? h('div', { class: 'mk-frame ' + frame }, frame === 'browser' ? h('div', { class: 'mk-bar' }, h('i'), h('i'), h('i'), h('span', { class: 'url' }, el.getAttribute('url') || '')) : null, img) : h('div', { style: 'border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--card)' }, img);
   const stage = h('div', { class: 'mk-stage', style: el.getAttribute('w') ? `max-width:${el.getAttribute('w')}px` : '' }, inner);
   el.style.display = 'block'; el.style.margin ||= '0 0 20px';
@@ -1203,7 +1225,7 @@ define('doc-plan', (el) => {
   const setOpen = (c, on) => { c.classList.toggle('open', on); c.querySelector(':scope > .pl-body').hidden = !on; c.querySelector(':scope > .pl-row').setAttribute('aria-expanded', String(on)); };
   const openPath = (c) => { for (let p = c; p && p !== el; p = p.parentElement) if (p.tagName === 'DOC-CLAIM') setOpen(p, true); };
   all.forEach((c) => {
-    const claim = c.querySelector(':scope > p') || h('p', null, '(no claim)'); claim.classList.add('pl-claim');
+    const claim = c.querySelector(':scope > p') || h('p', null, L('(no claim)')); claim.classList.add('pl-claim');
     const body = h('div', { class: 'pl-body' }); while (c.firstChild) body.append(c.firstChild);
     const aux = c.getAttribute('aux');
     const row = h('div', { class: 'pl-row', role: 'button', tabindex: 0 }, h('span', { class: 'pl-chev' }, '▸'), h('span', { class: 'pl-num' }, c.dataset.no || (aux === 'scope' ? '—' : '＊')), claim, h('span', { class: 'pl-meta' }));
@@ -1219,7 +1241,7 @@ define('doc-plan', (el) => {
   const nAsk = $$('doc-ask', el).length;
   const sticky = () => { const walk = (c, top) => { const row = c.querySelector(':scope > .pl-row'); row.style.setProperty('--top', top + 'px'); if (c.classList.contains('open')) claimKids(c).forEach((k) => walk(k, top + row.offsetHeight)); }; claimKids(el).forEach((c) => walk(c, 0)); };
   function paint() {
-    all.forEach((c) => { const meta = c.querySelector(':scope > .pl-row > .pl-meta'); meta.querySelector('.pl-bdg')?.remove(); const n = $$('doc-ask', c).length; if (n) meta.append(h('span', { class: 'pl-bdg' + (ownAsk(c) ? '' : ' deep'), title: ownAsk(c) ? '' : 'inside this claim' }, `${n} decision${n > 1 ? 's' : ''}`)); });
+    all.forEach((c) => { const meta = c.querySelector(':scope > .pl-row > .pl-meta'); meta.querySelector('.pl-bdg')?.remove(); const n = $$('doc-ask', c).length; if (n) meta.append(h('span', { class: 'pl-bdg' + (ownAsk(c) ? '' : ' deep'), title: ownAsk(c) ? '' : L('inside this claim') }, ZH ? `${n} 个决策` : `${n} decision${n > 1 ? 's' : ''}`)); });
     sticky();
   }
   new ResizeObserver(sticky).observe(el);
@@ -1236,7 +1258,7 @@ define('doc-quote', (el) => {
   const via = el.getAttribute('via') || 'source'; const from = el.getAttribute('from'); const at = el.getAttribute('at'); const href = el.getAttribute('href'); const role = el.getAttribute('role');
   const body = h('div', { class: 'q-body' }); while (el.firstChild) body.append(el.firstChild);
   const viaTxt = { prompt: 'prompt', slack: 'slack', github: 'github', pr: 'PR', transcript: role || 'transcript', doc: 'doc', tools: 'tools', email: 'email', meeting: 'meeting' }[via] || via;
-  el.append(h('div', { class: 'q-head' }, h('span', { class: 'q-via' }, viaTxt), from ? h('span', { class: 'q-from' }, from) : null, el.getAttribute('where') ? h('span', null, el.getAttribute('where')) : null, h('span', { class: 'q-at' }, href ? h('a', { href, target: '_blank', rel: 'noopener' }, at || 'link ↗') : (at || ''))), body);
+  el.append(h('div', { class: 'q-head' }, h('span', { class: 'q-via' }, L(viaTxt)), from ? h('span', { class: 'q-from' }, from) : null, el.getAttribute('where') ? h('span', null, el.getAttribute('where')) : null, h('span', { class: 'q-at' }, href ? h('a', { href, target: '_blank', rel: 'noopener' }, at || L('link ↗')) : (at || ''))), body);
   if (via === 'tools') { body.style.cssText = 'font:12.5px var(--mono);color:var(--ink-2);padding:7px 14px'; }
 });
 
@@ -1244,15 +1266,15 @@ define('doc-quote', (el) => {
 define('doc-changes', (el) => {
   const n = (k) => Math.max(0, parseInt(el.getAttribute(k), 10) || 0); const parts = [['add', n('new'), '+', 'new'], ['mod', n('changed'), '~', 'changed'], ['del', n('deleted'), '−', 'deleted']].filter((x) => x[1]);
   const total = parts.reduce((a, x) => a + x[1], 0); if (!total) { el.hidden = true; return; }
-  el.replaceChildren(h('span', { class: 'ch-tag' }, 'Proposed'), h('b', null, `${total} file${total > 1 ? 's' : ''}`), ...parts.map((x) => h('span', { class: 'ch-n ' + x[0] }, h('b', null, x[2] + x[1]), ' ' + x[3])));
+  el.replaceChildren(h('span', { class: 'ch-tag' }, L('Proposed')), h('b', null, ZH ? `${total} 个文件` : `${total} file${total > 1 ? 's' : ''}`), ...parts.map((x) => h('span', { class: 'ch-n ' + x[0] }, h('b', null, x[2] + x[1]), ' ' + L(x[3]))));
 });
 
 /* ── doc-ask ──────────────────────────────────────── */
 define('doc-ask', (el) => {
   if (el.getAttribute('q') && !el.querySelector(':scope > p')) el.prepend(h('p', null, el.getAttribute('q')));
-  $$('label', el).forEach((lab) => { const inp = lab.querySelector(':scope > input[type=radio], :scope > input[type=checkbox]'); if (!inp) return; const span = h('span'); [...lab.childNodes].forEach((n) => { if (n !== inp) span.append(n); }); lab.append(span); if (inp.checked && !el.hasAttribute('neutral')) { const first = span.querySelector('small'); const tag = h('span', { class: 'sug' }, 'Suggested'); first ? span.insertBefore(tag, first) : span.append(tag); } });
+  $$('label', el).forEach((lab) => { const inp = lab.querySelector(':scope > input[type=radio], :scope > input[type=checkbox]'); if (!inp) return; const span = h('span'); [...lab.childNodes].forEach((n) => { if (n !== inp) span.append(n); }); lab.append(span); if (inp.checked && !el.hasAttribute('neutral')) { const first = span.querySelector('small'); const tag = h('span', { class: 'sug' }, L('Suggested')); first ? span.insertBefore(tag, first) : span.append(tag); } });
   $$('input[type=range]', el).forEach((r) => { if (r.parentElement.classList.contains('range-row')) return; const row = h('div', { class: 'range-row' }); r.replaceWith(row); row.append(h('span', null, r.min || '0'), r, h('span', null, r.max || '100'), h('output', null, r.value)); });
-  $$('ol.rank', el).forEach((ol) => { let drag = null; $$(':scope > li', ol).forEach((li) => { li.draggable = true; if (!li.dataset.value) li.dataset.value = li.textContent.trim(); li.append(h('button', { title: 'up', onclick: (e) => { e.preventDefault(); li.previousElementSibling && ol.insertBefore(li, li.previousElementSibling); onFormChange(); } }, '↑'), h('button', { title: 'down', onclick: (e) => { e.preventDefault(); li.nextElementSibling && ol.insertBefore(li.nextElementSibling, li); onFormChange(); } }, '↓'), h('span', { class: 'grip' }, '⋮⋮'));
+  $$('ol.rank', el).forEach((ol) => { let drag = null; $$(':scope > li', ol).forEach((li) => { li.draggable = true; if (!li.dataset.value) li.dataset.value = li.textContent.trim(); li.append(h('button', { title: L('up'), onclick: (e) => { e.preventDefault(); li.previousElementSibling && ol.insertBefore(li, li.previousElementSibling); onFormChange(); } }, '↑'), h('button', { title: L('down'),onclick: (e) => { e.preventDefault(); li.nextElementSibling && ol.insertBefore(li.nextElementSibling, li); onFormChange(); } }, '↓'), h('span', { class: 'grip' }, '⋮⋮'));
     li.addEventListener('dragstart', () => { drag = li; li.classList.add('dragging'); }); li.addEventListener('dragend', () => { li.classList.remove('dragging'); drag = null; onFormChange(); }); li.addEventListener('dragover', (e) => { e.preventDefault(); if (!drag || drag === li) return; const r = li.getBoundingClientRect(); ol.insertBefore(drag, (e.clientY - r.top) > r.height / 2 ? li.nextSibling : li); }); }); });
   el.addEventListener('input', onFormChange); el.addEventListener('change', onFormChange);
 });
@@ -1284,10 +1306,10 @@ function boot() {
   });
   const feedbackOff = document.body.dataset.feedback === 'off' || $('meta[name="htmlplan"][content~="readonly"]');
   if (!feedbackOff) {
-    bar = h('div', { class: 'nw-bar' }, tocMk ? h('button', { class: 'nw-toc-btn', title: 'Contents', onclick: () => openSheet('Contents', tocMk()) }) : null, h('button', { class: 'nw-next', hidden: '', title: 'Go to the next decision', onclick: nextAsk }), h('button', { class: 'nw-respond', onclick: openResponse }, 'Respond'));
+    bar = h('div', { class: 'nw-bar' }, tocMk ? h('button', { class: 'nw-toc-btn', title: L('Contents'), onclick: () => openSheet(L('Contents'), tocMk()) }) : null, h('button', { class: 'nw-next', hidden: '', title: L('Go to the next decision'), onclick: nextAsk }), h('button', { class: 'nw-respond', onclick: openResponse }, L('Respond')));
     if (tocMk) bar.firstChild.textContent = '☰';
     document.body.append(bar);
-  } else if (tocMk) { bar = null; document.body.append(h('div', { class: 'nw-bar' }, h('button', { class: 'nw-toc-btn', style: 'display:block', onclick: () => openSheet('Contents', tocMk()) }, '☰'))); }
+  } else if (tocMk) { bar = null; document.body.append(h('div', { class: 'nw-bar' }, h('button', { class: 'nw-toc-btn', style: 'display:block', onclick: () => openSheet(L('Contents'), tocMk()) }, '☰'))); }
   if (!feedbackOff && 'IntersectionObserver' in window) {   // a decision counts as opened once most of it has been on screen for a moment, or the reader touches it
     const io = new IntersectionObserver((ents) => ents.forEach((en) => { const a = en.target; clearTimeout(a._seenT); if (en.isIntersecting) a._seenT = setTimeout(() => markSeen(a), 900); }), { threshold: 0.4 });
     $$('doc-ask').forEach((a) => { io.observe(a); a.addEventListener('pointerdown', () => markSeen(a)); });

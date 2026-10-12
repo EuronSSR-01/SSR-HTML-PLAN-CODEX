@@ -1,4 +1,5 @@
 /* Modified for SSR-HTML-PLAN-CODEX: remove trailing whitespace only. */
+/* Modified for SSR-HTML-PLAN-CODEX, 2026-10-12: CJK font fallbacks; Chinese chrome text under :lang(zh). */
 /* htmlplan — one stylesheet for every coding artifact.
    Tokens first; everything else reads from them. Light + dark.
    Type: 5 sizes (12 · 14 · 16 · 20 · 28, code 13) and 3 weights (430 · 550 · 600). Sentence case. One accent. Borders, not shadows. */
@@ -11,8 +12,8 @@
   --red: #b3261e;   --red-soft: #f7dfdc;
   --blue: #2a69b8;  --blue-soft: #dde8f5;
   --purple: #6f4bb8; --purple-soft: #e8e1f5;
-  --sans: "Anthropic Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --serif: "Anthropic Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --sans: "Anthropic Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --serif: "Anthropic Serif", ui-serif, Georgia, "Times New Roman", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "Microsoft YaHei", serif;
   --mono: "Anthropic Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --col: 740px; --wide: 1080px; --r: 12px; --r-sm: 8px;
   --shadow: none; --float: 0 2px 8px rgba(0,0,0,.08);
@@ -563,3 +564,13 @@ svg.nw .node.mc-lit rect, svg.nw .node.mc-lit path, svg.nw .node.mc-lit ellipse 
 .mc-set { background: var(--accent-soft); color: var(--accent) !important; border-radius: 3px; padding: 0 3px; transition: background .3s; }
 [data-state][hidden] { display: none !important; }
 .mc-stage { padding: 12px 14px 4px; border-top: 1px solid var(--line-2); } .mc-stage > .stage-h, .stage-h { margin: 0 0 8px; font: 600 12px/1 var(--sans); color: var(--ink-3); }
+
+/* ── Chinese chrome (SSR-HTML-PLAN-CODEX): a page with lang="zh…" shows these words; htmlplan.js does the same for the words it draws ── */
+:lang(zh) doc-code[collapsed] .c-head::after { content: "展开 ▾"; }
+@media (max-width: 640px) { :lang(zh) .cl-row.has-detail::after { content: '打开'; } }
+:lang(zh) .tr-row.add .tr-name::after { content: "  新增"; }
+:lang(zh) .tr-row.mod .tr-name::after { content: "  修改"; }
+:lang(zh) doc-ask:not([kind]):not([data-n])::before { content: "决策"; }
+:lang(zh) doc-ask.changed::after { content: "已修改"; }
+:lang(zh) doc-quote[via="tools"] .q-body::before { content: "⚙ 工具 · "; }
+:lang(zh) .mc-events .lbl::after { content: "（也可以点状态，带框的是当前能到达的状态）"; }

@@ -1,88 +1,262 @@
 <!doctype html>
-<!-- Modified for public distribution: replace private request with a fictional brief. -->
+<!-- SSR-HTML-PLAN-CODEX teaching example. The project "饭点", its code and the quotes are fictional. Copy the shape, not the content. -->
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>餐厅点餐页改造示例</title>
+<title>预约取餐计划</title>
 <link rel="stylesheet" href="../runtime/htmlplan.css">
 <script src="../runtime/htmlplan.js" defer></script>
 <style data-mock-shared>
-  .food-ui { font: 14px/1.6 "Segoe UI", "Microsoft YaHei", sans-serif; color:#29251f; background:#fffaf0; border:1px solid #e7d8c5; border-radius:12px; overflow:hidden; }
-  .food-ui .top { padding:20px; background:#244a3e; color:#fffaf0; }
-  .food-ui .top small { color:#c7dac2; }
-  .food-ui h3 { margin:4px 0; font-size:24px; }
-  .food-ui .tabs { display:flex; gap:10px; padding:14px 16px; border-bottom:1px solid #e7d8c5; }
-  .food-ui .tab { padding:5px 12px; border-radius:20px; background:#efe6d7; }
-  .food-ui .active { background:#244a3e; color:white; }
-  .food-ui .dish { padding:16px; display:grid; grid-template-columns:1fr auto; gap:6px; border-bottom:1px solid #eee4d4; }
-  .food-ui .dish strong { font-size:16px; }
-  .food-ui .dish small { color:#746b5d; }
-  .food-ui .add { grid-column:2; grid-row:1 / 3; align-self:center; padding:6px 13px; border-radius:7px; background:#d77739; color:white; }
-  .food-ui .cart { padding:14px 16px; display:flex; justify-content:space-between; background:#244a3e; color:white; }
+  .fd { font: 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif; color: #1f2420; background: #fff; border: 1px solid #dfe3dc; border-radius: 12px; overflow: hidden; }
+  .fd .hd { padding: 11px 14px; font-weight: 650; border-bottom: 1px solid #edf0ea; }
+  .fd .ln { display: flex; justify-content: space-between; padding: 8px 14px; color: #4d544c; border-bottom: 1px solid #f3f5f1; } .fd .ln b { color: #1f2420; font-weight: 600; }
+  .fd .sec { padding: 10px 14px 4px; font-weight: 600; } .fd .sec small { color: #8a9187; font-weight: 400; margin-left: 6px; }
+  .fd .slots { display: flex; gap: 8px; padding: 6px 14px 12px; flex-wrap: wrap; }
+  .fd .slot { padding: 5px 11px; border: 1px solid #cfd6cb; border-radius: 16px; font-size: 13px; } .fd .slot.on { background: #2f6b4f; border-color: #2f6b4f; color: #fff; } .fd .slot.off { color: #a8aea5; background: #f4f5f2; border-style: dashed; }
+  .fd .ft { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f7f8f5; border-top: 1px solid #edf0ea; }
+  .fd .btn { padding: 7px 14px; border-radius: 8px; background: #e2702f; color: #fff; font-weight: 600; font-size: 13px; } .fd .btn.ghost { background: #fff; color: #b54a1f; border: 1px solid #e8c3b0; } .fd .btn.dim { background: #f1f2ef; color: #a8aea5; border: 1px solid #e3e6e0; }
+  .fd .card { padding: 12px 14px; } .fd .card .top { display: flex; justify-content: space-between; align-items: center; } .fd .card small { color: #6f766d; } .fd .card .acts { margin-top: 10px; display: flex; justify-content: flex-end; }
+  .fd .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; } .fd .tag.blue { background: #e3edf8; color: #2a5f9e; } .fd .tag.amber { background: #f7ecd6; color: #8a5a0b; } .fd .tag.green { background: #e1f0e6; color: #2f6b4f; } .fd .tag.grey { background: #eef0ec; color: #6f766d; }
+  .fd .msg { padding: 12px 14px; } .fd .msg .app { font-size: 12px; color: #8a9187; margin-bottom: 4px; } .fd .msg .kv { display: flex; gap: 12px; padding: 3px 0; } .fd .msg .kv span:first-child { width: 64px; color: #8a9187; }
 </style>
 </head>
 <body>
+
 <header>
-  <h1>餐厅点餐页改造示例</h1>
-  <p>SSR-HTML-PLAN-CODEX · 教学演示。菜品、价格和代码均为虚构，未读取或修改餐厅项目。</p>
-  <details class="thread"><summary>需求背景与使用方式</summary>
-    <doc-quote via="prompt" from="虚构示例需求">改造餐厅点餐页，让顾客按分类选菜，并在手机上方便地查看购物车。</doc-quote>
-    <p>展开方案，选择选项，再点右下角 Respond → Copy response，把反馈粘回 Codex。这里的选择仅演示交互。</p>
+  <h1>饭点小程序的预约取餐</h1>
+  <doc-changes new="6" changed="4"></doc-changes>
+  <details class="thread"><summary>为什么 · 2 条需求</summary>
+    <doc-quote via="prompt" from="示例用户" where="虚构需求">加一个预约取餐。顾客下单时选时间，快到点了后厨再做。中午高峰别把后厨压垮。</doc-quote>
+    <doc-quote via="meeting" from="门店店长" where="虚构反馈">十二点那一波二十几单一起进来，根本做不过来。</doc-quote>
   </details>
 </header>
+
 <main>
 <doc-plan>
-  <doc-claim id="menu">
-    <p>顾客可以按分类浏览菜品并加入购物车。</p>
-    <doc-mock frame="none" w="440" caption="草图：分类、价格和加购入口集中展示。"><template>
-      <div class="food-ui">
-        <div class="top"><small>CHEF TERIYAKI · 界面草图</small><h3>今天，吃点热乎的。</h3><span>现做餐点 · 自取与配送</span></div>
-        <div class="tabs"><span class="tab active" data-ref="category">招牌餐</span><span class="tab">小食</span><span class="tab">饮品</span></div>
-        <div class="dish"><strong>照烧鸡肉饭</strong><small>鸡腿肉 · 米饭 · 时蔬 / $12.80</small><span class="add">＋</span></div>
-        <div class="dish"><strong>香煎三文鱼饭</strong><small>三文鱼 · 米饭 · 时蔬 / $16.80</small><span class="add">＋</span></div>
-        <div class="cart" data-ref="cart"><span>购物车 · 2 件</span><strong>查看订单 →</strong></div>
-      </div>
-    </template></doc-mock>
-    <doc-ask id="theme">
-      <p>你更喜欢哪种配色？</p>
-      <label><input type="radio" name="theme" value="warm" checked> 暖白与深绿 <small>推荐，食物内容更突出</small></label>
-      <label><input type="radio" name="theme" value="minimal"> 黑白极简 <small>减少装饰色</small></label>
-    </doc-ask>
-    <doc-claim>
-      <p>分类切换保留已经选择的菜品。</p>
-      <doc-code title="分类筛选 · 草图 / sketch" lang="js"><script type="text/plain">
-const visibleDishes = dishes.filter(dish => dish.category === activeCategory);
-// 切换 activeCategory 不会重置 cartItems。
-</script></doc-code>
+
+<!-- ═════ 1 · 做什么 ═════ -->
+<doc-claim>
+  <p>顾客结账时可以选一个取餐时间。</p>
+  <doc-mock frame="none" w="380" caption="满的时段显示为灰色，不能选。"><template>
+<div class="fd">
+  <div class="hd">确认订单</div>
+  <div class="ln"><span>照烧鸡肉饭 × 1</span><b>¥28.00</b></div>
+  <div class="ln"><span>味噌汤 × 1</span><b>¥14.00</b></div>
+  <div class="sec">取餐时间<small>今天</small></div>
+  <div class="slots" data-ref="slots"><span class="slot off">11:45 满</span><span class="slot">12:00</span><span class="slot on">12:15</span><span class="slot">12:30</span></div>
+  <div class="ft"><span>合计 <b>¥42.00</b></span><span class="btn">提交订单</span></div>
+</div></template>
+    <doc-pin ref="slots" title="新增的时段选择">其余部分不变。</doc-pin>
+  </doc-mock>
+
+  <!-- 1.1 · 怎么做 -->
+  <doc-claim>
+    <p>下单时，服务端为这一单占一个时段名额。</p>
+    <doc-calls title="下单" caption="点 reserveSlot 这一行，打开它的代码。">
+<script type="text/plain">
+~ <CheckoutPage/>                              @ web/src/checkout/CheckoutPage.tsx:52
++   <**PickupSlotPicker**/>                    @ web/src/checkout/PickupSlotPicker.tsx:8
++     GET /api/pickup-slots                    @ web/src/api/pickup.ts:6
+~ createOrder(req)                             @ server/src/orders/routes.ts:31
++   **reserveSlot**(storeId, pickupAt)         @ server/src/pickup/slots.ts:14
+    insertOrder(row)                           @ server/src/orders/store.ts:20
+</script>
+    </doc-calls>
+    <!-- 1.1.1 · 在哪里：at= 和调用行的 @ path:line 一致 -->
+    <doc-claim at="server/src/pickup/slots.ts:14">
+      <p><b>slots.ts:14</b> · reserveSlot()</p>
+      <doc-code title="slots.ts · 草图" lang="ts" start="14">
+<script type="text/plain">
+export async function reserveSlot(storeId: string, pickupAt: Date) {
+  const key = slotKey(storeId, pickupAt)
+  const row = await db.oneOrNone(
+    `INSERT INTO pickup_slots (key, taken) VALUES ($1, 1)
+     ON CONFLICT (key) DO UPDATE SET taken = pickup_slots.taken + 1
+       WHERE pickup_slots.taken < $2
+     RETURNING taken`, [key, SLOT_CAPACITY])
+  if (!row) throw new SlotFullError(key)   // 前端收到后刷新时段
+  return key
+}
+</script>
+        <doc-pin line="18" title="一条语句加一">两单同时提交，也不会超过上限。</doc-pin>
+      </doc-code>
     </doc-claim>
   </doc-claim>
-  <doc-claim id="checkout">
-    <p>手机端顾客可以随时查看购物车金额。</p>
-    <doc-mock frame="none" w="360" caption="草图：底部入口显示数量和合计。"><template>
-      <div class="food-ui"><div style="padding:22px 16px;color:#746b5d">菜品列表滚动区域</div><div class="cart"><span>2 件 · $29.60</span><strong>查看购物车</strong></div></div>
-    </template></doc-mock>
-    <doc-ask id="cart-position">
-      <p>购物车入口放在哪里？</p>
-      <label><input type="radio" name="cartPosition" value="bottom" checked> 固定在底部 <small>推荐，方便单手操作</small></label>
-      <label><input type="radio" name="cartPosition" value="header"> 放在顶部 <small>页面底部更简洁</small></label>
+
+  <!-- 1.2 -->
+  <doc-claim>
+    <p>每个 15 分钟时段最多接 8 单。</p>
+    <doc-code title="slots.ts · 草图" lang="ts">
+<script type="text/plain">
+export const SLOT_MINUTES = 15
+export const SLOT_CAPACITY = 8
+
+export const slotKey = (storeId: string, at: Date) =>
+  `${storeId}:${floorTo(at, SLOT_MINUTES).toISOString()}`
+</script>
+    </doc-code>
+    <doc-ask id="capacity">
+      <p>每个时段最多接几单？</p>
+      <div class="opts-row">
+        <label><input type="radio" name="capacity" value="8" checked> 8 单</label>
+        <label><input type="radio" name="capacity" value="12"> 12 单</label>
+        <label><input type="radio" name="capacity" value="store"> 每家门店自己设 <small>多一张门店配置表</small></label>
+      </div>
     </doc-ask>
   </doc-claim>
-  <doc-claim aux="shared">
-    <p>两个入口读取同一份购物车数据。</p>
-    <doc-schema id="cart-shape" lang="ts" title="CartItem · 草图 / sketch" caption="可以点 Edit 修改字段，反馈中会带上差异。"><script type="text/plain">
-type CartItem = {
-  dishId: string;
-  name: string;
-  quantity: number;
-  unitPriceCents: number;
-};
-</script></doc-schema>
+</doc-claim>
+
+<!-- ═════ 2 ═════ -->
+<doc-claim>
+  <p>后厨在取餐前 20 分钟收到订单。</p>
+  <doc-machine name="order" caption="绿色虚线是新增的流转。">
+<script type="text/plain">
+machine order initial scheduled
+state scheduled "已预约"        # 顾客选好了时间，订单还没到后厨。
+state cooking   "制作中"        # 后厨收到了订单。
+state ready     "待取餐"        # 餐做好了，等顾客来拿。
+state picked    "已取餐" final  # 顾客拿走了餐。
+state cancelled "已取消" final  # 退款走原来的流程。
+
+| scheduled | cooking | ready | picked |
+| cancelled | .       | .     | .      |
+
++ scheduled -due->    cooking   : 提前 20 分钟
+cooking     -done->   ready     : 出餐
+ready       -pickup-> picked    : 核销
++ scheduled -cancel-> cancelled : 取消
+</script>
+    <div data-state="scheduled"><doc-mock frame="none" w="360"><template><div class="fd"><div class="card"><div class="top"><b>照烧鸡肉饭 等 2 件</b><span class="tag blue">已预约</span></div><small>12:15 取餐 · 2 号窗口</small><div class="acts"><span class="btn ghost">取消预约</span></div></div></div></template></doc-mock></div>
+    <div data-state="cooking"><doc-mock frame="none" w="360"><template><div class="fd"><div class="card"><div class="top"><b>照烧鸡肉饭 等 2 件</b><span class="tag amber">制作中</span></div><small>预计 12:15 出餐 · 2 号窗口</small></div></div></template></doc-mock></div>
+    <div data-state="ready"><doc-mock frame="none" w="360"><template><div class="fd"><div class="card"><div class="top"><b>照烧鸡肉饭 等 2 件</b><span class="tag green">待取餐</span></div><small>取餐码 <b>A27</b> · 2 号窗口</small></div></div></template></doc-mock></div>
+    <div data-state="picked"><doc-mock frame="none" w="360"><template><div class="fd"><div class="card"><div class="top"><b>照烧鸡肉饭 等 2 件</b><span class="tag grey">已取餐</span></div><small>12:17 取走</small></div></div></template></doc-mock></div>
+    <div data-state="cancelled"><doc-mock frame="none" w="360"><template><div class="fd"><div class="card"><div class="top"><b>照烧鸡肉饭 等 2 件</b><span class="tag grey">已取消</span></div><small>退款按原路返回</small></div></div></template></doc-mock></div>
+  </doc-machine>
+  <doc-ask id="lead">
+    <p>后厨提前多久收到预约单？</p>
+    <label><input type="radio" name="lead" value="20" checked> 固定提前 20 分钟</label>
+    <label><input type="radio" name="lead" value="dish"> 按每道菜的出餐时长算 <small>菜单要加一个字段</small></label>
+  </doc-ask>
+  <div data-if="lead=dish"><doc-note tone="warn"><strong>超出范围</strong> 菜单后台要加“出餐时长”，本计划没有包含这部分。</doc-note></div>
+
+  <!-- 2.1 -->
+  <doc-claim>
+    <p>定时任务每分钟把到点的预约单派给后厨。</p>
+    <doc-calls title="派单" caption="派单调用后厨现有的 push()，不改它。">
+<script type="text/plain">
++ **dispatchDueOrders**()                      @ server/src/pickup/dispatch.ts:10
++   **claimDue**(now + 20min, 50)              @ server/src/pickup/store.ts:33
++   kitchen.push(order)                        @ server/src/kitchen/queue.ts:18
+</script>
+    </doc-calls>
+    <doc-claim at="server/src/pickup/store.ts:33">
+      <p><b>store.ts:33</b> · claimDue()</p>
+      <doc-code title="store.ts · 草图" lang="sql">
+<script type="text/plain">
+UPDATE orders SET status = 'cooking'
+WHERE id IN (
+  SELECT id FROM orders
+  WHERE status = 'scheduled' AND pickup_at <= $1
+  ORDER BY pickup_at LIMIT $2
+  FOR UPDATE SKIP LOCKED
+)
+RETURNING *;
+</script>
+        <doc-pin line="6" title="两个任务不会领到同一单"></doc-pin>
+      </doc-code>
+    </doc-claim>
   </doc-claim>
-  <doc-claim aux="scope">
-    <p>本示例仅演示计划审阅功能。</p>
-    <ul><li>不连接支付，不提交订单，不修改业务代码。</li><li>实际项目的文件路径和修改数量须先读代码确认。</li><li>未打开的默认选项不等于同意，复制反馈也不会自动执行改动。</li></ul>
+</doc-claim>
+
+<!-- ═════ 3 ═════ -->
+<doc-claim>
+  <p>顾客在开始制作前可以取消预约。</p>
+  <doc-mock frame="none" w="360" caption="开始制作后，取消按钮变灰。"><template>
+<div class="fd"><div class="card"><div class="top"><b>照烧鸡肉饭 等 2 件</b><span class="tag amber">制作中</span></div><small>预计 12:15 出餐 · 如需取消请联系门店</small><div class="acts"><span class="btn dim" data-ref="cancel">取消预约</span></div></div></div></template>
+    <doc-pin ref="cancel" anchor="l" title="制作中不能取消"></doc-pin>
+  </doc-mock>
+  <doc-ask id="late-cancel">
+    <p>开始制作后，顾客还能取消吗？</p>
+    <label><input type="radio" name="lateCancel" value="no" checked> 不能，提示联系门店</label>
+    <label><input type="radio" name="lateCancel" value="norefund"> 能，但不退款 <small>要改退款规则</small></label>
+  </doc-ask>
+
+  <!-- 3.1 -->
+  <doc-claim>
+    <p>取消和派单同时发生时，先写入的一方生效。</p>
+    <doc-code title="orders/store.ts · 草图" lang="sql">
+<script type="text/plain">
+UPDATE orders SET status = 'cancelled'
+WHERE id = $1 AND user_id = $2 AND status = 'scheduled'
+RETURNING slot_key;
+-- 没有返回行：后厨已经开始做，告诉顾客。
+-- 有返回行：pickup_slots.taken 减 1，再走原来的退款流程。
+</script>
+    </doc-code>
   </doc-claim>
+</doc-claim>
+
+<!-- ═════ 4 ═════ -->
+<doc-claim>
+  <p>餐做好后，顾客收到一条取餐提醒。</p>
+  <doc-mock frame="none" w="360" caption="提醒用小程序订阅消息发出。"><template>
+<div class="fd"><div class="msg"><div class="app">饭点 · 服务通知</div><b>取餐提醒</b>
+  <div class="kv"><span>取餐码</span><b>A27</b></div>
+  <div class="kv"><span>取餐窗口</span><span>2 号窗口</span></div>
+  <div class="kv"><span>餐品</span><span>照烧鸡肉饭 等 2 件</span></div>
+</div></div></template>
+  </doc-mock>
+  <doc-ask id="notify">
+    <p>用什么方式提醒顾客？</p>
+    <label><input type="radio" name="notify" value="sub" checked> 小程序订阅消息</label>
+    <label><input type="radio" name="notify" value="sms"> 订阅消息加短信 <small>每条短信约 0.05 元</small></label>
+    <label><input type="radio" name="notify" value="none"> 不提醒 <small>论点 4 去掉</small></label>
+  </doc-ask>
+
+  <!-- 4.1 -->
+  <doc-claim>
+    <p><code>markReady()</code> 之后发一条订阅消息。</p>
+    <doc-calls title="提醒" caption="沿用现有的 notify()。">
+<script type="text/plain">
+~ markReady(orderId)                           @ server/src/orders/store.ts:71
++   notify(userId, 'pickup_ready')             @ server/src/notify/notify.ts:22
+</script>
+    </doc-calls>
+  </doc-claim>
+</doc-claim>
+
+<!-- ═════ 共用 · 不改 ═════ -->
+<doc-claim aux="shared">
+  <p>共用：orders 加两列，新增 pickup_slots 表。</p>
+  <doc-schema id="migration" lang="sql" title="migrations/0031_pickup.sql · 草图" caption="时间按 UTC 存。">
+<script type="text/plain">
+ALTER TABLE orders
+  ADD COLUMN pickup_at timestamptz,   -- 预约取餐时间；即时单为空
+  ADD COLUMN slot_key  text;          -- 门店 + 15 分钟时段
+
+ALTER TABLE orders DROP CONSTRAINT orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN
+  ('scheduled', 'cooking', 'ready', 'picked', 'cancelled'));   -- 新增 scheduled
+
+CREATE TABLE pickup_slots (
+  key    text PRIMARY KEY,            -- store_id + 时段开始时间
+  taken  int  NOT NULL DEFAULT 0
+);
+CREATE INDEX orders_due ON orders (status, pickup_at);
+</script>
+  </doc-schema>
+</doc-claim>
+
+<doc-claim aux="scope">
+  <p>不改：支付、配送和菜单管理。</p>
+  <ul>
+    <li>支付仍在提交订单时完成。</li>
+    <li>配送单不能预约。</li>
+    <li>只能预约当天的时段。</li>
+  </ul>
+</doc-claim>
+
 </doc-plan>
 </main>
 </body>

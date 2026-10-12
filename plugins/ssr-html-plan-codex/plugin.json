@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ssr-html-plan-codex",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "在 Codex 中生成可离线审阅的中文 HTML 实施计划，支持分层方案、界面草图、决策选择、批注与反馈复制。",
   "author": {
     "name": "EuronSSR-01",
@@ -15,7 +15,7 @@
       "interface": {
         "displayName": "SSR-HTML-PLAN-CODEX",
         "shortDescription": "中文交互式开发计划：看草图、选方案、批注并复制反馈",
-        "longDescription": "把实施方案做成可展开的单文件 HTML。包含行为说明、界面草图、代码依据和待确认决策。支持离线审阅及反馈复制。基于 Anthropic html-plan 的社区移植；需要本地 Node.js。",
+        "longDescription": "把实施方案做成可展开的单文件 HTML：一棵论点树，每个论点配界面草图、状态机、调用树、数据结构或代码，待确认的决策放在它影响的论点上。中文页面显示中文界面，打包检查按中文字数和中文写作规范报警。支持离线审阅及反馈复制。基于 Anthropic html-plan 的社区移植；需要本地 Node.js。",
         "developerName": "EuronSSR-01",
         "category": "Productivity",
         "defaultPrompt": ["用 $ssr-html-plan-codex:ssr-html-plan-codex 为当前需求生成中文交互式 HTML 实施计划，先审阅方案，不修改业务代码。"]

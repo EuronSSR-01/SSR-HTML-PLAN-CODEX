@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 // Modified for SSR-HTML-PLAN-CODEX, 2026-10-06: accept Chinese sentence punctuation.
+// Modified for SSR-HTML-PLAN-CODEX, 2026-10-12: count Chinese text (a CJK character is half a word), split Chinese sentences,
+//   report sizes in 字 on lang="zh…" pages, and warn about some Chinese wording rules from SKILL.md.
 // pack.mjs — lint an artifact and inline everything into one portable .html
 //   node pack.mjs page.html [-o out.html] [--root dir] [--lint-only] [--quiet] [--artifact]
 // Lint runs the same parsers the browser uses (from htmlplan.js), fills <doc-code src>
@@ -58,7 +60,13 @@ const stamp = (f, wt) => { for (const r of roots) { const rr = real(r); if (!rr 
 const REF_OK = /^[A-Za-z0-9][\w.\/^~@{}-]*$/;
 const gitShow = (ref, p) => { if (!REF_OK.test(ref) || /(^|\/)\.\.(\/|$)/.test(p) || p.startsWith('/') || p.startsWith('-') || SECRET_NAME.test(p)) { if (!refused.has(ref + ':' + p)) { refused.add(ref + ':' + p); err(`ref="${ref}" with "${p}" — not a plain git ref and a path inside the repo; not running git`); } return null; }
   for (const r of roots) { try { return { text: git(r, 'cat-file', 'blob', `${ref}:${p}`), where: `${r}@${ref}` }; } catch {} } return null; };
-const wc = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).length;
+// Chinese has no spaces, so a CJK character counts as half a word: about two characters carry what one English word does.
+const CJK = /[⺀-⿟぀-ヿ㐀-䶿一-鿿가-힣豈-﫿]/g, CJK_PUNCT = /[　-〿！-･]/g;
+const wc = (t) => { const s = String(t || ''); return s.replace(CJK, ' ').replace(CJK_PUNCT, ' ').trim().split(/\s+/).filter(Boolean).length + (s.match(CJK) || []).length / 2; };
+const ZH = /<html\b[^>]*\blang=["']?zh/i.test(html);
+const amount = (n) => ZH ? `${Math.round(n * 2)} 字` : `${Math.round(n)} words`;   // a budget or a count, in the page's own unit
+const size = (t) => amount(wc(t));
+const SENT = /(?<=[.!?])\s+|(?<=[。！？])/;   // sentence ends, English and Chinese
 const stripTags = (t) => t.replace(/<[^>]+>/g, ' ');
 
 /* ── document-level checks ── */
@@ -72,7 +80,9 @@ for (const m of html.matchAll(/<(doc-[a-z]+)\b/g)) if (!KNOWN.has(m[1])) err(`li
 const ids = {}; for (const m of html.matchAll(/\sid=["']([^"']+)["']/g)) { if (ids[m[1]]) err(`duplicate id="${m[1]}" (lines ${ids[m[1]]} and ${lineOf(m.index)})`); ids[m[1]] = lineOf(m.index); }
 for (const m of html.matchAll(/href=["']#([^"']+)["']/g)) if (!ids[m[1]] && !/^s\d+/.test(m[1])) warn(`line ${lineOf(m.index)}: href="#${m[1]}" points at no id`);
 
-{ const t = html.match(/<div class="tldr">([\s\S]*?)<\/div>/i); if (t && wc(stripTags(t[1])) > 50) warn(`.tldr is ${wc(stripTags(t[1]))} words — ≤ 40: what changes, and what you need from the reader`); }
+{ const t = html.match(/<div class="tldr">([\s\S]*?)<\/div>/i); if (t && wc(stripTags(t[1])) > 50) warn(`.tldr is ${size(stripTags(t[1]))} — ≤ ${amount(40)}: what changes, and what you need from the reader`); }
+{ const body = stripTags((html.match(/<body[\s\S]*$/i) || [''])[0].replace(/<(script|style|template)\b[\s\S]*?<\/\1>/gi, ' ')); const cjk = (body.match(CJK) || []).length;
+  if (!ZH && cjk > 40 && cjk / 2 > wc(body) - cjk / 2) warn('the page is written in Chinese but <html lang> is not zh — set lang="zh-CN": the page then shows Chinese chrome, and the lint counts 字'); }
 { const ti = (html.match(/<title>([^<]*)<\/title>/i) || [])[1] || '', h1 = stripTags((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || ''); const nums = (x) => (x.match(/\d[\d,.]*/g) || []).join(' '); if (ti && h1 && nums(ti) && nums(h1) && nums(ti) !== nums(h1)) warn(`<title> "${ti.trim()}" and <h1> "${h1.trim()}" disagree on a number — the title is what the response is filed under`); }
 
 /* ── per-block checks (and <doc-code src> fill) ── */
@@ -163,7 +173,7 @@ html = html.replace(/<(doc-(?!plan\b|claim\b)[a-z]+)\b([^>]*)>([\s\S]*?)<\/\1>/g
         const body = blockSrc(a.src && !hasScript ? '' : inner); const isDiff = 'diff' in a || /^(diff|patch)$/.test(a.lang || ''); const st = +(a.start || (a.lines || '').match(/^\d+/)?.[0] || 1);
         const valid = new Set(), validOld = new Set(); let A = st, B = +(a['old-start'] || st);
         body.split('\n').forEach((l, i) => { if (!isDiff) { valid.add(st + i); return; } if (l.startsWith('@@')) { const ma = l.match(/\+(\d+)/), mb = l.match(/-(\d+)/); if (ma) A = +ma[1]; if (mb) B = +mb[1]; } else if (l[0] === '+') valid.add(A++); else if (l[0] === '-') validOld.add(B++); else { valid.add(A++); B++; } });
-        for (const p of inner.matchAll(/<doc-pin\b([^>]*)>([\s\S]*?)<\/doc-pin>/g)) { const pa = attrs(p[1]); if (wc(stripTags(p[2])) > 20) warn(`${at}: pin at line ${pa.line || pa.old} is ${wc(stripTags(p[2]))} words — pins locate (a clause or two); the argument goes in prose or a numbered risk it links to`);
+        for (const p of inner.matchAll(/<doc-pin\b([^>]*)>([\s\S]*?)<\/doc-pin>/g)) { const pa = attrs(p[1]); if (wc(stripTags(p[2])) > 20) warn(`${at}: pin at line ${pa.line || pa.old} is ${size(stripTags(p[2]))} — pins locate (a clause or two); the argument goes in prose or a numbered risk it links to`);
           if (!pa.line && !pa.old) err(`${at}: <doc-pin> inside doc-code needs line="" (file line number as shown in the gutter${isDiff ? '; old="N" for a removed line' : ''})`);
           else if (pa.line && body && !valid.has(+pa.line)) err(`${at}: <doc-pin line="${pa.line}"> — no such line in this block (gutter shows ${[...valid][0]}–${[...valid].pop()}${isDiff ? ', new-side numbers; use old="N" to pin a removed line' : ''})`);
           else if (pa.old && !validOld.has(+pa.old)) err(`${at}: <doc-pin old="${pa.old}"> — no removed line with that old-side number in this block`); } }
@@ -190,8 +200,8 @@ html = html.replace(/<(doc-(?!plan\b|claim\b)[a-z]+)\b([^>]*)>([\s\S]*?)<\/\1>/g
       groups.forEach((g) => { const rs = radios.filter((r) => r.name === g); if (!rs.some((r) => 'checked' in r)) warn(`${at}: radio group "${g}" has no checked option — pre-select your recommendation so "no change" is an answer`); if (rs.some((r) => !r.value)) err(`${at}: every radio in "${g}" needs a value`); if (names.has(g)) err(`${at}: control name "${g}" is used by an earlier doc-ask`); });
       named.forEach((c) => names.add(c.name || c['data-name']));
       if (ctrls.some((c) => c.tag === 'input' && !c.type)) warn(`${at}: <input> without type`);
-      for (const sm of inner.matchAll(/<small>([\s\S]*?)<\/small>/g)) if (wc(stripTags(sm[1])) > 16) { warn(`${at}: an option's <small> is ${wc(stripTags(sm[1]))} words — ≤ ~12; the trade-off is argued once in the section, the option just names it`); break; }
-      const q = inner.match(/<(p|h3|h4)[^>]*>([\s\S]*?)<\/\1>/i); if (q && wc(stripTags(q[2])) > 25) warn(`${at}: the question is ${wc(stripTags(q[2]))} words — keep the first <p> to the question (≤ ~15 words) and put context in a second <p>`);
+      for (const sm of inner.matchAll(/<small>([\s\S]*?)<\/small>/g)) if (wc(stripTags(sm[1])) > 16) { warn(`${at}: an option's <small> is ${size(stripTags(sm[1]))} — ≤ ~${amount(12)}; the trade-off is argued once in the section, the option just names it`); break; }
+      const q = inner.match(/<(p|h3|h4)[^>]*>([\s\S]*?)<\/\1>/i); if (q && wc(stripTags(q[2])) > 25) warn(`${at}: the question is ${size(stripTags(q[2]))} — keep the first <p> to the question (≤ ~${amount(15)}) and put context in a second <p>`);
       if (lastAskEnd >= 0 && !html.slice(lastAskEnd, idx).replace(/<[^>]+>/g, '').trim()) warn(`${at}: directly follows another doc-ask with nothing between — asks belong where their consequence is discussed, not stacked`);
       lastAskEnd = idx + whole.length;
     }
@@ -218,7 +228,7 @@ if (/<doc-plan\b/.test(html)) {
   if (stack.length > 1) err(`${stack.length - 1} <doc-claim> left open — every claim needs its </doc-claim>`);
   const walk = (n) => { const at = `claim ${n.no}`;
     if (n.claim == null && !n.a.at) err(`${at}: no claim — the first child must be a <p> with one sentence (or give it at="path:line")`);
-    if (n.claim && wc(n.claim) > 16) warn(`${at}: the claim is ${wc(n.claim)} words — one short sentence (≤ ~12) that can be true or false`);
+    if (n.claim && wc(n.claim) > 16) warn(`${at}: the claim is ${size(n.claim)} — one short sentence (≤ ~${amount(12)}) that can be true or false`);
     if (n.claim && n.l <= 2 && !n.a.aux && !/[.?!。？！]$/.test(n.claim)) warn(`${at}: "${n.claim.slice(0, 40)}" — write a full sentence with a verb, not a heading`);
     if (n.ex.length > 1) warn(`${at}: ${n.ex.length} exhibits (${n.ex.join(', ')}) — one per claim; give the others their own child claims`);
     if (!n.ex.length && !n.kids.length && n.a.aux !== 'scope') warn(`${at}: nothing under it — add the exhibit that proves it`);
@@ -237,7 +247,7 @@ for (const m of html.matchAll(/<doc-changes\b([^>]*)>/g)) { const a = attrs(m[1]
 if (/<doc-plan\b/.test(html)) {   // a plan starts with a title, not a label line or a goal sentence
   const k = html.match(/<p\s+class=["']?kicker\b/i); if (k) warn(`line ${lineOf(k.index)}: a plan has no label line above its title — remove <p class="kicker">; the page hides it`);
   const m = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i); const t = m ? stripTags(m[1]).replace(/\s+/g, ' ').trim() : '';
-  if (t && (wc(t) > 8 || /[.!?](\s|$)/.test(t))) warn(`line ${lineOf(m.index)}: the <h1> of a plan is a title, not a sentence — name the change and the place in 3 to 7 words ("Scheduling Sent Messages in PostBox"); the level-1 claims say what changes`);
+  if (t && (wc(t) > 8 || /[.!?](\s|$)|[。！？，]/.test(t))) warn(`line ${lineOf(m.index)}: the <h1> of a plan is a title, not a sentence — name the change and the place in ${ZH ? '6 to 14 字 ("PostBox 定时发送")' : '3 to 7 words ("Scheduling Sent Messages in PostBox")'}; the level-1 claims say what changes`);
 }
 
 /* ── words: the blocks are the document; prose only joins them ── */
@@ -245,10 +255,10 @@ if (/<doc-plan\b/.test(html)) {   // a plan starts with a title, not a label lin
   const blocks = (main.match(/<doc-(code|flow|seq|schema|tree|calls|machine|mock|shot|ask|draft)\b/g) || []).length;
   const bare = main.replace(/<(script|style|template)\b[\s\S]*?<\/\1>/gi, ' ').replace(/<(doc-(?:code|flow|seq|schema|tree|calls|machine|mock|shot|ask|draft|quote))\b[\s\S]*?<\/\1>/gi, ' ');
   let total = 0, long = 0, longest = 0, slow = 0;
-  for (const m of bare.matchAll(/<(p|li|dd|doc-note)\b[^>]*>([\s\S]*?)<\/\1>/gi)) { const t = stripTags(m[2]).replace(/\s+/g, ' ').trim(); const n = wc(t); total += n; if (n > 40) { long++; longest = Math.max(longest, n); } t.split(/(?<=[.!?])\s+/).forEach((sn) => { if (wc(sn) > 25) slow++; }); }
-  if (long) warn(`${long} paragraph${long > 1 ? 's' : ''} over 40 words (longest ${longest}) — two short sentences, then a block; move the rest into a caption, a pin or a table`);
-  if (slow) warn(`${slow} sentence${slow > 1 ? 's' : ''} over 25 words — split them; one idea per sentence`);
-  if (total > 350 || (blocks && total / blocks > 45)) warn(`${total} words of prose for ${blocks} block${blocks === 1 ? '' : 's'} — aim for ≤ 350 words and ≤ ~30 per block; cut, or show it as a block`);
+  for (const m of bare.matchAll(/<(p|li|dd|doc-note)\b[^>]*>([\s\S]*?)<\/\1>/gi)) { const t = stripTags(m[2]).replace(/\s+/g, ' ').trim(); const n = wc(t); total += n; if (n > 40) { long++; longest = Math.max(longest, n); } t.split(SENT).forEach((sn) => { if (wc(sn) > 25) slow++; }); }
+  if (long) warn(`${long} paragraph${long > 1 ? 's' : ''} over ${amount(40)} (longest ${amount(longest)}) — two short sentences, then a block; move the rest into a caption, a pin or a table`);
+  if (slow) warn(`${slow} sentence${slow > 1 ? 's' : ''} over ${amount(25)} — split them; one idea per sentence`);
+  if (total > 350 || (blocks && total / blocks > 45)) warn(`${amount(total)} of prose for ${blocks} block${blocks === 1 ? '' : 's'} — aim for ≤ ${amount(350)} and ≤ ~${amount(30)} per block; cut, or show it as a block`);
   // ASD-STE100 (Simplified Technical English). This is a partial check: it knows a few common unapproved words and the countable writing rules, not the full dictionary.
   const STE = { utilize: 'use', utilizes: 'uses', leverage: 'use', leverages: 'uses', facilitate: 'help', facilitates: 'helps', 'in order to': 'to', subsequently: 'then', aforementioned: 'this', 'prior to': 'before', additionally: 'also', furthermore: 'also', however: 'but', comprehensive: 'full', robust: 'strong', seamless: 'smooth', seamlessly: 'smoothly', numerous: 'many', commence: 'start', commences: 'starts', begin: 'start', begins: 'starts', terminate: 'stop', terminates: 'stops', demonstrate: 'show', demonstrates: 'shows', indicate: 'show', indicates: 'shows', ensure: 'make sure', ensures: 'makes sure', verify: 'make sure', verifies: 'makes sure', perform: 'do', performs: 'does', 'carry out': 'do', 'carries out': 'does', obtain: 'get', obtains: 'gets', provide: 'give', provides: 'gives', should: 'must', shall: 'must', might: 'can', 'with respect to': 'about', 'due to the fact that': 'because' };
   const prose = stripTags(bare.replace(/<(code|kbd|pre)\b[\s\S]*?<\/\1>/gi, ' ')); const text = prose.toLowerCase();
@@ -260,8 +270,14 @@ if (/<doc-plan\b/.test(html)) {   // a plan starts with a title, not a label lin
   if (perfect.length) warn(`ASD-STE100: use simple tenses, not "has/have + verb" — ${perfect.slice(0, 4).map((x) => `"${x}"`).join(', ')}`);
   const passive = [...new Set(text.match(/\b(?:is|are|was|were|be|been|being) (?:\w+ed|written|sent|made|done|shown|taken|given|kept|held|read|run|set|put|built|chosen) by\b/g) || [])];
   if (passive.length) warn(`ASD-STE100: use the active voice — ${passive.slice(0, 4).map((x) => `"${x}"`).join(', ')} (say who does it first)`);
-  let six = 0; for (const m of bare.matchAll(/<(p|li|dd|doc-note)\b[^>]*>([\s\S]*?)<\/\1>/gi)) if (stripTags(m[2]).split(/(?<=[.!?])\s+/).filter((x) => x.trim()).length > 6) six++;
-  if (six) warn(`ASD-STE100: ${six} paragraph${six > 1 ? 's' : ''} with more than 6 sentences — split`); }
+  let six = 0; for (const m of bare.matchAll(/<(p|li|dd|doc-note)\b[^>]*>([\s\S]*?)<\/\1>/gi)) if (stripTags(m[2]).split(SENT).filter((x) => x.trim()).length > 6) six++;
+  if (six) warn(`ASD-STE100: ${six} paragraph${six > 1 ? 's' : ''} with more than 6 sentences — split`);
+  // 中文写作 (SKILL.md). A partial check: it knows some empty words and the passive 被, not the whole style.
+  if (ZH) { const ZW = [[/进行/, '进行', '直接写动词：进行检查 → 检查'], [/应该|应当/, '应该', '规则写“必须”，能力写“可以”'], [/相关/, '相关', '点名具体的函数、文件或表'],
+      [/一系列|各种|等等/, '一系列/各种/等等', '列出具体项，或写数量'], [/确保/, '确保', '写出检查动作'], [/通过[^，。；]{1,16}的方式/, '通过…的方式', '用…'], [/在[^，。；]{1,16}的情况下/, '在…的情况下', '如果…'],
+      [/有效地|全面|显著|无缝|极致|大幅/, '有效/全面/显著…', '删掉，或写出数字'], [/赋能|抓手|闭环|打通/, '赋能/抓手/闭环/打通', '写出具体做什么'], [/尽量|也许|大概/, '尽量/也许/大概', '写确定的规则或数字']];
+    const zh = ZW.filter(([re]) => re.test(prose)).map(([, w, fix]) => `"${w}" → ${fix}`); if (zh.length) warn(`中文用词: ${zh.slice(0, 6).join('; ')}${zh.length > 6 ? ` … ${zh.length - 6} more` : ''}`);
+    const bei = prose.match(/[^\s，。；！？]{0,6}被[^\s，。；！？]{0,6}/g) || []; if (bei.length) warn(`中文: 用主动句，写出谁做 — ${bei.slice(0, 4).map((x) => `"${x}"`).join(', ')}`); } }
 
 /* ── inline assets ── */
 let packed = html; let inlined = 0;

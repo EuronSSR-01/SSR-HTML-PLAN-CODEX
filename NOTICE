@@ -20,3 +20,19 @@ Public plugin packaging, 2026-10-06:
 - Added plugin metadata, a GitHub marketplace, and Chinese installation instructions.
 - Updated invocation examples to the plugin-qualified skill name.
 - Removed three trailing-whitespace occurrences in the runtime sources.
+
+Version 1.1.0, 2026-10-12:
+- Rewrote SKILL.md in Chinese to restore the upstream method: the claim tree table, the page
+  skeleton, the eleven rules, the steps and the response format. Chinese writing rules replace
+  ASD-STE100 for Chinese plans; the upstream English writing rules moved to references/writing-en.md.
+- Replaced the Chinese example with a full three-level plan. Its project, code and quotes are fictional.
+- htmlplan.js: Chinese chrome for pages with lang="zh…"; CJK-aware label widths in diagrams.
+  The copied response keeps its English markers.
+- htmlplan.css: CJK font fallbacks; Chinese chrome text under :lang(zh).
+- pack.mjs: counts Chinese text (a CJK character counts as half a word), splits Chinese sentences,
+  reports sizes in 字 on Chinese pages, warns about some Chinese wording rules, and warns when a
+  Chinese page has no lang="zh…".
+
+License note: the upstream repository's LICENSE file is Apache License 2.0. The html-plan plugin
+manifest in that repository declares "MIT". This package follows the repository LICENSE.
+The upstream html-plan plugin manifest names Thariq Shihipar as its author.
