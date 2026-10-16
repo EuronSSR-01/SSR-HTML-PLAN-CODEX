@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ssr-html-plan-codex",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "在 Codex 中生成可离线审阅的中文 HTML 实施计划，支持分层方案、界面草图、决策选择、批注与反馈复制。",
   "author": {
     "name": "EuronSSR-01",

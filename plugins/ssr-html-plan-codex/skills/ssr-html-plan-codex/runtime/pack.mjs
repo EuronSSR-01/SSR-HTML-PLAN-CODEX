@@ -196,6 +196,9 @@ html = html.replace(/<(doc-(?!plan\b|claim\b)[a-z]+)\b([^>]*)>([\s\S]*?)<\/\1>/g
       const ctrls = [...inner.matchAll(/<(input|textarea|select|ol)\b([^>]*)>/gi)].map((m) => ({ tag: m[1].toLowerCase(), ...attrs(m[2]) }));
       const named = ctrls.filter((c) => c.name || (c.tag === 'ol' && c['data-name']));
       if (!named.length) err(`${at}: no named controls — use <label><input type=radio name=… value=…> …</label>, checkboxes, <textarea name>, <input type=range name>, or <ol class=rank data-name>`);
+      const hasChoice = named.some((c) => ['radio', 'checkbox', 'range'].includes(c.type) || c.tag === 'select' || c.tag === 'ol');
+      const hasFreeText = named.some((c) => c.tag === 'textarea' || (c.tag === 'input' && c.type === 'text'));
+      if (hasChoice && !hasFreeText) warn(`${at}: ${ZH ? '缺少“其他想法”输入框 — 在选项下添加带 name 的 textarea，让用户能写自己的方案' : 'add a named textarea below the options so the reader can write other ideas'}`);
       const radios = named.filter((c) => c.type === 'radio'); const groups = [...new Set(radios.map((r) => r.name))];
       groups.forEach((g) => { const rs = radios.filter((r) => r.name === g); if (!rs.some((r) => 'checked' in r)) warn(`${at}: radio group "${g}" has no checked option — pre-select your recommendation so "no change" is an answer`); if (rs.some((r) => !r.value)) err(`${at}: every radio in "${g}" needs a value`); if (names.has(g)) err(`${at}: control name "${g}" is used by an earlier doc-ask`); });
       named.forEach((c) => names.add(c.name || c['data-name']));
