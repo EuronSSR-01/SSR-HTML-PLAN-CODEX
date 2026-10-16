@@ -33,6 +33,12 @@ Version 1.1.0, 2026-10-12:
   reports sizes in 字 on Chinese pages, warns about some Chinese wording rules, and warns when a
   Chinese page has no lang="zh…".
 
+Version 1.1.1, 2026-10-16:
+- Made plain, self-contained language the first writing requirement in SKILL.md, with a
+  readability check before delivery and guidance for rebuilding context after long conversations.
+- Allowed necessary explanations to take priority over length guidance; aligned the component
+  reference and simplified the Chinese example's explanations and choices.
+
 License note: the upstream repository's LICENSE file is Apache License 2.0. The html-plan plugin
 manifest in that repository declares "MIT". This package follows the repository LICENSE.
 The upstream html-plan plugin manifest names Thariq Shihipar as its author.

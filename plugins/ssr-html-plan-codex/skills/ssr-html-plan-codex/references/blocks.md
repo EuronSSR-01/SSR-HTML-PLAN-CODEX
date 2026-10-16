@@ -17,6 +17,8 @@ Everything the reader can see is a comment target: claims, code lines, call rows
 
 The first child of a claim is a `<p>` with the claim; `<code>` and `<b>` are fine inside it. Then one exhibit. Then, if needed, a `doc-ask` or a `doc-note`. Then child claims.
 
+For Chinese plans, follow the plain-language rules in `SKILL.md`: the first `<p>` may use two or three short sentences to explain one point. Keep necessary conditions and outcomes. Use captions or a `doc-note` after the exhibit for context the reader needs. Length warnings are guidance, not a reason to remove meaning.
+
 The reader gets: numbered claims; a tap on a claim opens it and every claim under it; a count of decisions on every closed parent; parents that stay pinned while scrolling; a comment button on every claim.
 
 ## `doc-changes` — the size of the proposed change
