@@ -2,6 +2,8 @@
 // Modified for SSR-HTML-PLAN-CODEX, 2026-10-06: accept Chinese sentence punctuation.
 // Modified for SSR-HTML-PLAN-CODEX, 2026-10-12: count Chinese text (a CJK character is half a word), split Chinese sentences,
 //   report sizes in 字 on lang="zh…" pages, and warn about some Chinese wording rules from SKILL.md.
+// Modified for SSR-HTML-PLAN-CODEX, 2026-10-16: warn when a choice question has no free-text row; on Chinese pages a claim
+//   may be two or three short sentences (about 60 字) before it warns.
 // pack.mjs — lint an artifact and inline everything into one portable .html
 //   node pack.mjs page.html [-o out.html] [--root dir] [--lint-only] [--quiet] [--artifact]
 // Lint runs the same parsers the browser uses (from htmlplan.js), fills <doc-code src>
@@ -198,7 +200,7 @@ html = html.replace(/<(doc-(?!plan\b|claim\b)[a-z]+)\b([^>]*)>([\s\S]*?)<\/\1>/g
       if (!named.length) err(`${at}: no named controls — use <label><input type=radio name=… value=…> …</label>, checkboxes, <textarea name>, <input type=range name>, or <ol class=rank data-name>`);
       const hasChoice = named.some((c) => ['radio', 'checkbox', 'range'].includes(c.type) || c.tag === 'select' || c.tag === 'ol');
       const hasFreeText = named.some((c) => c.tag === 'textarea' || (c.tag === 'input' && c.type === 'text'));
-      if (hasChoice && !hasFreeText) warn(`${at}: ${ZH ? '缺少“其他想法”输入框 — 在选项下添加带 name 的 textarea，让用户能写自己的方案' : 'add a named textarea below the options so the reader can write other ideas'}`);
+      if (hasChoice && !hasFreeText) warn(`${at}: ${ZH ? '缺少“其他想法” — 在选项下加 <details class="other"><summary>其他想法（可选）</summary><textarea name="问题名.other"></textarea></details>' : 'add a free-text row below the options: <details class="other"><summary>Other ideas (optional)</summary><textarea name="question.other"></textarea></details>'}`);
       const radios = named.filter((c) => c.type === 'radio'); const groups = [...new Set(radios.map((r) => r.name))];
       groups.forEach((g) => { const rs = radios.filter((r) => r.name === g); if (!rs.some((r) => 'checked' in r)) warn(`${at}: radio group "${g}" has no checked option — pre-select your recommendation so "no change" is an answer`); if (rs.some((r) => !r.value)) err(`${at}: every radio in "${g}" needs a value`); if (names.has(g)) err(`${at}: control name "${g}" is used by an earlier doc-ask`); });
       named.forEach((c) => names.add(c.name || c['data-name']));
@@ -231,7 +233,7 @@ if (/<doc-plan\b/.test(html)) {
   if (stack.length > 1) err(`${stack.length - 1} <doc-claim> left open — every claim needs its </doc-claim>`);
   const walk = (n) => { const at = `claim ${n.no}`;
     if (n.claim == null && !n.a.at) err(`${at}: no claim — the first child must be a <p> with one sentence (or give it at="path:line")`);
-    if (n.claim && wc(n.claim) > 16) warn(`${at}: the claim is ${size(n.claim)} — one short sentence (≤ ~${amount(12)}) that can be true or false`);
+    if (n.claim && wc(n.claim) > (ZH ? 30 : 16)) warn(`${at}: the claim is ${size(n.claim)} — ${ZH ? `两三句短话以内（≤ 约 ${amount(30)}）；更多背景放进图注或 doc-note` : `one short sentence (≤ ~${amount(12)}) that can be true or false`}`);
     if (n.claim && n.l <= 2 && !n.a.aux && !/[.?!。？！]$/.test(n.claim)) warn(`${at}: "${n.claim.slice(0, 40)}" — write a full sentence with a verb, not a heading`);
     if (n.ex.length > 1) warn(`${at}: ${n.ex.length} exhibits (${n.ex.join(', ')}) — one per claim; give the others their own child claims`);
     if (!n.ex.length && !n.kids.length && n.a.aux !== 'scope') warn(`${at}: nothing under it — add the exhibit that proves it`);

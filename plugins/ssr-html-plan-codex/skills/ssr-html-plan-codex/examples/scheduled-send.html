@@ -107,9 +107,9 @@ export async function assertUnderLimit(userId: string) {
         <label><input type="radio" name="limit" value="500"> 500</label>
         <label><input type="radio" name="limit" value="none"> No limit</label>
       </div>
-        <label><span>Other ideas (optional)
-          <textarea name="limit.other" rows="3" placeholder="Suggest a different answer or add details to your choice."></textarea>
-        </span></label>
+      <details class="other"><summary>Other ideas (optional)</summary>
+        <textarea name="limit.other" rows="3" aria-label="Other ideas" placeholder="Suggest a different answer or add details to your choice."></textarea>
+      </details>
     </doc-ask>
   </doc-claim>
 </doc-claim>
@@ -233,9 +233,9 @@ RETURNING id;   -- no row back: too late, tell the user
       <p>Should a failed send retry on its own?</p>
       <label><input type="radio" name="retry" value="3" checked> Yes, 3 times, 5 minutes apart</label>
       <label><input type="radio" name="retry" value="no"> No <small>the user presses “Try again”</small></label>
-        <label><span>Other ideas (optional)
-          <textarea name="retry.other" rows="3" placeholder="Suggest a different answer or add details to your choice."></textarea>
-        </span></label>
+      <details class="other"><summary>Other ideas (optional)</summary>
+        <textarea name="retry.other" rows="3" aria-label="Other ideas" placeholder="Suggest a different answer or add details to your choice."></textarea>
+      </details>
     </doc-ask>
   </doc-claim>
 </doc-claim>
@@ -251,9 +251,9 @@ RETURNING id;   -- no row back: too late, tell the user
     <label><input type="radio" name="notify" value="app" checked> In the app only</label>
     <label><input type="radio" name="notify" value="both"> In the app and by email <small>adds one template</small></label>
     <label><input type="radio" name="notify" value="none"> Not at all <small>claim 4 goes</small></label>
-      <label><span>Other ideas (optional)
-        <textarea name="notify.other" rows="3" placeholder="Suggest a different answer or add details to your choice."></textarea>
-      </span></label>
+    <details class="other"><summary>Other ideas (optional)</summary>
+      <textarea name="notify.other" rows="3" aria-label="Other ideas" placeholder="Suggest a different answer or add details to your choice."></textarea>
+    </details>
   </doc-ask>
   <doc-claim>
     <p>The last failed try adds one notification.</p>
@@ -289,9 +289,9 @@ CREATE INDEX scheduled_due ON scheduled_messages (status, send_at);
     <p>How long do sent and cancelled rows stay?</p>
     <label><input type="radio" name="keep" value="30" checked> 30 days, then deleted</label>
     <label><input type="radio" name="keep" value="forever"> Forever</label>
-      <label><span>Other ideas (optional)
-        <textarea name="keep.other" rows="3" placeholder="Suggest a different answer or add details to your choice."></textarea>
-      </span></label>
+    <details class="other"><summary>Other ideas (optional)</summary>
+      <textarea name="keep.other" rows="3" aria-label="Other ideas" placeholder="Suggest a different answer or add details to your choice."></textarea>
+    </details>
   </doc-ask>
 </doc-claim>
 

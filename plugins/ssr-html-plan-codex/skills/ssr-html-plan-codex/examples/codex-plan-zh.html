@@ -103,9 +103,9 @@ export const slotKey = (storeId: string, at: Date) =>
         <label><input type="radio" name="capacity" value="12"> 12 单</label>
         <label><input type="radio" name="capacity" value="store"> 每家门店自己设 <small>需要增加门店设置</small></label>
       </div>
-      <label><span>其他想法（可选）
-        <textarea name="capacity.other" rows="3" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
-      </span></label>
+      <details class="other"><summary>其他想法（可选）</summary>
+        <textarea name="capacity.other" rows="3" aria-label="其他想法" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
+      </details>
     </doc-ask>
   </doc-claim>
 </doc-claim>
@@ -140,9 +140,9 @@ ready       -pickup-> picked    : 确认取走
     <p>后厨提前多久收到预约单？</p>
     <label><input type="radio" name="lead" value="20" checked> 固定提前 20 分钟</label>
     <label><input type="radio" name="lead" value="dish"> 按每道菜的出餐时长算 <small>要为每道菜设置制作时间</small></label>
-    <label><span>其他想法（可选）
-      <textarea name="lead.other" rows="3" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
-    </span></label>
+    <details class="other"><summary>其他想法（可选）</summary>
+      <textarea name="lead.other" rows="3" aria-label="其他想法" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
+    </details>
   </doc-ask>
   <div data-if="lead=dish"><doc-note tone="warn"><strong>超出范围</strong> 菜单后台要加“出餐时长”，本计划没有包含这部分。</doc-note></div>
 
@@ -186,9 +186,9 @@ RETURNING *;
     <p>开始制作后，顾客还能取消吗？</p>
     <label><input type="radio" name="lateCancel" value="no" checked> 不能，提示联系门店</label>
     <label><input type="radio" name="lateCancel" value="norefund"> 能，但不退款 <small>要改退款规则</small></label>
-    <label><span>其他想法（可选）
-      <textarea name="lateCancel.other" rows="3" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
-    </span></label>
+    <details class="other"><summary>其他想法（可选）</summary>
+      <textarea name="lateCancel.other" rows="3" aria-label="其他想法" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
+    </details>
   </doc-ask>
 
   <!-- 3.1 -->
@@ -221,9 +221,9 @@ RETURNING slot_key;
     <label><input type="radio" name="notify" value="sub" checked> 小程序订阅消息</label>
     <label><input type="radio" name="notify" value="sms"> 订阅消息加短信 <small>每条短信约 0.05 元</small></label>
     <label><input type="radio" name="notify" value="none"> 不提醒 <small>不再发送取餐提醒，论点 4 去掉</small></label>
-    <label><span>其他想法（可选）
-      <textarea name="notify.other" rows="3" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
-    </span></label>
+    <details class="other"><summary>其他想法（可选）</summary>
+      <textarea name="notify.other" rows="3" aria-label="其他想法" placeholder="可以写不同的方案，也可以补充上面的选项。"></textarea>
+    </details>
   </doc-ask>
 
   <!-- 4.1 -->

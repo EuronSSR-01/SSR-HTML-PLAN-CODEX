@@ -1,5 +1,6 @@
 /* Modified for SSR-HTML-PLAN-CODEX: remove trailing whitespace only. */
 /* Modified for SSR-HTML-PLAN-CODEX, 2026-10-12: CJK font fallbacks; Chinese chrome text under :lang(zh). */
+/* Modified for SSR-HTML-PLAN-CODEX, 2026-10-16: a folded free-text row in doc-ask (details.other). */
 /* htmlplan — one stylesheet for every coding artifact.
    Tokens first; everything else reads from them. Light + dark.
    Type: 5 sizes (12 · 14 · 16 · 20 · 28, code 13) and 3 weights (430 · 550 · 600). Sentence case. One accent. Borders, not shadows. */
@@ -388,6 +389,11 @@ doc-ask .opts-row > label { margin: 0; flex-direction: column; gap: 6px; } doc-a
 doc-ask textarea, doc-ask input[type=text], doc-ask select { width: 100%; font: 14px/1.5 var(--sans); padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); color: var(--ink); margin: 4px 0 6px; }
 doc-ask textarea { min-height: 64px; resize: vertical; }
 doc-ask textarea:focus, doc-ask input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+/* the "other ideas" row: one line of text under the options; it opens to a text field, and it does not look like an option */
+doc-ask details.other { margin: 4px 0 0; border: 0; border-radius: 0; background: none; }
+doc-ask details.other > summary { display: inline-block; padding: 6px 4px 6px 18px; font-weight: 430; }
+doc-ask details.other > summary::before { left: 2px; top: 6px; }
+doc-ask details.other > :not(summary) { margin: 2px 0 0; }
 doc-ask input[type=range] { width: 100%; accent-color: var(--accent); }
 doc-ask .range-row { display: flex; align-items: center; gap: 12px; font: 12px var(--mono); color: var(--ink-2); } doc-ask .range-row output { color: var(--ink); font-weight: 600; min-width: 2ch; }
 doc-ask ol.rank { list-style: none; padding: 0; margin: 0 0 6px; counter-reset: rk; }

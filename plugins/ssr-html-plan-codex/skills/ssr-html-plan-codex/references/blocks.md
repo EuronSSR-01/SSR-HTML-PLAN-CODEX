@@ -157,16 +157,16 @@ export async function assertUnderLimit(userId: string) {
   <p>Should a failed send retry on its own?</p>
   <label><input type="radio" name="retry" value="3" checked> Yes, 3 times, 5 minutes apart</label>
   <label><input type="radio" name="retry" value="no"> No <small>the user presses “Try again”</small></label>
-  <label><span>Other ideas (optional)
-    <textarea name="retry.other" rows="3" placeholder="Suggest a different answer or add details to your choice."></textarea>
-  </span></label>
+  <details class="other"><summary>Other ideas (optional)</summary>
+    <textarea name="retry.other" rows="3" aria-label="Other ideas" placeholder="Suggest a different answer or add details to your choice."></textarea>
+  </details>
 </doc-ask>
 <div data-if="retry=no"><doc-note tone="warn">Then claim 4 fires on the first failure.</doc-note></div>
 ```
 
 - It is a form. Radios pick one; checkboxes with one `name` pick several; `<textarea name>` and `<input type=text name>` take text; `<input type=range name min max value>` is a scale; `<ol class="rank" data-name="x"><li data-value="a">` is drag to rank. `<div class="opts-row">` lays short options side by side.
-- Every choice question also needs an always-visible, labelled, empty `<textarea name="question.other">` below its options. In Chinese, label it “其他想法（可选）”. The reader can propose a different answer or add conditions without selecting a preset or opening a comment popover. Reuse an existing free-text field if it serves this purpose. Keep its name unique across the page; do not hide it behind `data-if`.
-- Free text is saved with the answers and copied as quoted lines under `other:` in that question. Empty text adds no feedback line. A written alternative does not mean the reader accepted the still-selected recommendation.
+- Every choice question also gets a folded free-text row below its options: `<details class="other">` with a `<summary>` and an empty `<textarea name="question.other">`. In Chinese, the summary is “其他想法（可选）”. The reader opens it to propose a different answer or add conditions, without selecting a preset or opening a comment popover. Reuse an existing free-text field if it serves this purpose. Keep its name unique across the page and ending in `.other`; do not put it behind `data-if`.
+- Free text is saved with the answers and copied as quoted lines under `other:` in that question. Empty text adds no feedback line. When the page opens again with saved text, the row opens by itself. A written alternative does not mean the reader accepted the still-selected recommendation.
 - The first `<p>` is the question, 15 words at most.
 - **`checked` is your recommendation.** It gets a “suggested” tag, and “I changed nothing” is then a full answer. Never leave a radio group without one.
 - Control names must be unique on the page.
